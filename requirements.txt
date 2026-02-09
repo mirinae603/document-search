@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+python-multipart
+requests
+psutil
+kreuzberg
+lancedb
+tantivy
+pyyaml
+
+
+# sentence-transformers
+
+
+# cohere

@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Search System - Feature Rich</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Courier New', monospace; font-size: 11px; padding: 10px; background: #f5f5f5; color: #000; }
+        h1 { font-size: 18px; margin-bottom: 10px; border-bottom: 3px solid #000; padding-bottom: 5px; background: #000; color: #fff; padding: 10px; }
+        h2 { font-size: 14px; margin: 15px 0 5px 0; border-bottom: 2px solid #333; padding: 5px; background: #333; color: #fff; }
+        h3 { font-size: 12px; margin: 10px 0 5px 0; border-bottom: 1px solid #666; font-weight: bold; }
+        
+        .section { margin-bottom: 20px; border: 2px solid #000; padding: 15px; background: #fff; }
+        
+        /* Upload */
+        #uploadForm { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        #uploadForm input[type="file"] { flex: 1; padding: 8px; border: 2px solid #000; min-width: 300px; }
+        #uploadForm button { padding: 8px 20px; background: #000; color: #fff; border: none; cursor: pointer; font-weight: bold; font-family: monospace; }
+        #uploadForm button:hover { background: #333; }
+        #uploadStatus { margin-top: 10px; padding: 10px; border: 1px solid #ccc; min-height: 30px; background: #fafafa; }
+        
+        /* Search */
+        #searchForm { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+        #searchQuery { flex: 1; padding: 8px; border: 2px solid #000; font-family: 'Courier New', monospace; font-size: 12px; min-width: 300px; }
+        #searchForm button { padding: 8px 20px; background: #000; color: #fff; border: none; cursor: pointer; font-weight: bold; font-family: monospace; }
+        #searchForm button:hover { background: #333; }
+        
+        .search-mode { display: flex; gap: 15px; margin-bottom: 10px; flex-wrap: wrap; }
+        .search-mode label { display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 5px 10px; border: 1px solid #ccc; background: #f9f9f9; }
+        .search-mode label:hover { background: #e9e9e9; }
+        .search-mode input[type="radio"]:checked + span { font-weight: bold; }
+        
+        .search-controls { display: flex; gap: 10px; align-items: center; }
+        .search-controls label { font-weight: bold; }
+        .search-controls input { padding: 5px; border: 2px solid #000; width: 70px; font-family: monospace; }
+        
+        /* Results */
+        .result { border: 2px solid #000; padding: 15px; margin-bottom: 15px; background: #fff; }
+        .result-header { font-weight: bold; font-size: 13px; margin-bottom: 8px; padding: 5px; background: #000; color: #fff; }
+        .result-meta { font-size: 10px; color: #666; margin-bottom: 8px; padding: 5px; background: #f0f0f0; border-left: 3px solid #666; }
+        .result-meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 5px; margin-top: 5px; }
+        .meta-item { padding: 3px 5px; background: #fff; border: 1px solid #ddd; }
+        .meta-label { font-weight: bold; color: #000; }
+        
+        /* Match Score Details */
+        .match-details { margin: 10px 0; padding: 10px; background: #fffacd; border: 2px solid #ffd700; }
+        .match-details h3 { color: #000; background: #ffd700; padding: 5px; margin: -10px -10px 10px -10px; }
+        .score-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+        .score-item { padding: 8px; background: #fff; border: 1px solid #ddd; text-align: center; }
+        .score-value { font-size: 16px; font-weight: bold; color: #000; display: block; margin-bottom: 3px; }
+        .score-label { font-size: 9px; color: #666; text-transform: uppercase; }
+        
+        /* Term Frequencies */
+        .term-freq { margin-top: 8px; }
+        .term-freq-item { display: inline-block; margin: 3px; padding: 4px 8px; background: #e3f2fd; border: 1px solid #2196f3; border-radius: 3px; }
+        .term-freq-item .term { font-weight: bold; color: #1976d2; }
+        .term-freq-item .count { color: #0d47a1; margin-left: 5px; }
+        
+        /* Semantic Info */
+        .semantic-details { margin: 10px 0; padding: 10px; background: #e8f5e9; border: 2px solid #4caf50; }
+        .semantic-details h3 { color: #000; background: #4caf50; padding: 5px; margin: -10px -10px 10px -10px; }
+        
+        /* Hybrid Info */
+        .hybrid-details { margin: 10px 0; padding: 10px; background: #f3e5f5; border: 2px solid #9c27b0; }
+        .hybrid-details h3 { color: #000; background: #9c27b0; color: #fff; padding: 5px; margin: -10px -10px 10px -10px; }
+        
+        /* Highlights */
+        .result-text { margin: 10px 0; padding: 10px; background: #f5f5f5; border-left: 4px solid #000; max-height: 300px; overflow-y: auto; font-size: 11px; line-height: 1.6; }
+        .result-highlights { margin-top: 10px; }
+        .highlight-item { margin: 8px 0; padding: 8px; background: #fff3cd; border-left: 3px solid #ff9800; font-size: 11px; }
+        .highlight-item mark { background: #ffeb3b; padding: 2px 4px; font-weight: bold; }
+        .highlight-meta { font-size: 9px; color: #666; margin-top: 3px; }
+        
+        /* Comparison View */
+        .comparison-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+        .comparison-column { border: 2px solid #000; padding: 15px; background: #fff; }
+        .comparison-column h3 { font-size: 13px; margin-bottom: 15px; text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; background: #000; color: #fff; padding: 8px; margin: -15px -15px 15px -15px; }
+        .comparison-result { border: 1px solid #666; padding: 10px; margin-bottom: 10px; background: #fafafa; }
+        
+        /* Query Stats */
+        .query-stats { padding: 10px; background: #e3f2fd; border: 2px solid #2196f3; margin-bottom: 15px; }
+        .query-stats h3 { margin-bottom: 8px; color: #1976d2; }
+        .query-terms { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px; }
+        .query-term { padding: 3px 8px; background: #fff; border: 1px solid #2196f3; border-radius: 3px; font-weight: bold; }
+        
+        /* Stats */
+        #stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; font-size: 11px; }
+        .stat-item { padding: 10px; border: 2px solid #000; background: #fff; text-align: center; }
+        .stat-value { font-size: 20px; font-weight: bold; display: block; margin-bottom: 5px; }
+        .stat-label { font-size: 10px; color: #666; text-transform: uppercase; }
+        
+        /* Status indicators */
+        .loading { color: #ff9800; font-style: italic; font-weight: bold; }
+        .error { color: #fff; background: #f44336; border: 2px solid #c62828; padding: 10px; font-weight: bold; }
+        .success { color: #fff; background: #4caf50; border: 2px solid #2e7d32; padding: 10px; font-weight: bold; }
+        
+        /* Scrollbar styling */
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #888; border: 1px solid #666; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+    </style>
+</head>
+<body>
+
+<h1>🔍 DOCUMENT SEARCH SYSTEM - FEATURE RICH DATA VIEW</h1>
+
+<!-- Stats -->
+<div class="section">
+    <h2>SYSTEM STATUS</h2>
+    <div id="stats">
+        <div class="stat-item">
+            <span class="stat-value" id="stat-status">●</span>
+            <span class="stat-label">Status</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-value" id="stat-docs">-</span>
+            <span class="stat-label">Documents</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-value" id="stat-size">-</span>
+            <span class="stat-label">Total Size</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-value" id="stat-time">-</span>
+            <span class="stat-label">Last Updated</span>
+        </div>
+    </div>
+</div>
+
+<!-- Upload -->
+<div class="section">
+    <h2>UPLOAD DOCUMENT</h2>
+    <form id="uploadForm">
+        <input type="file" id="fileInput" accept=".pdf,.docx,.txt" required>
+        <button type="submit">UPLOAD & INDEX</button>
+    </form>
+    <div id="uploadStatus"></div>
+</div>
+
+<!-- Search -->
+<div class="section">
+    <h2>SEARCH</h2>
+    
+    <form id="searchForm">
+        <input type="text" id="searchQuery" placeholder="Enter search query..." required>
+        <button type="submit">SEARCH</button>
+    </form>
+    
+    <div class="search-mode">
+        <label><input type="radio" name="searchType" value="lexical"><span>LEXICAL (Full-Text + Match Stats)</span></label>
+        <label><input type="radio" name="searchType" value="semantic"><span>SEMANTIC (Vector + Similarity)</span></label>
+        <label><input type="radio" name="searchType" value="hybrid" checked><span>HYBRID (Combined Scoring)</span></label>
+        <label><input type="radio" name="searchType" value="comparison"><span>COMPARISON (All Three)</span></label>
+    </div>
+    
+    <div class="search-controls">
+        <label>Results Limit:</label>
+        <input type="number" id="searchLimit" value="10" min="1" max="50">
+    </div>
+</div>
+
+<!-- Results -->
+<div class="section">
+    <h2>RESULTS</h2>
+    <div id="resultsContainer">
+        <p style="padding: 20px; text-align: center; color: #999;">No search performed yet. Enter a query above.</p>
+    </div>
+</div>
+
+<script>
+// API Base URL
+const API_BASE = '';
+
+// Load stats on page load
+loadStats();
+setInterval(loadStats, 10000); // Refresh every 10s
+
+// Stats
+async function loadStats() {
+    try {
+        const response = await fetch(`${API_BASE}/stats`);
+        const data = await response.json();
+        
+        document.getElementById('stat-status').textContent = '●';
+        document.getElementById('stat-status').style.color = '#4caf50';
+        document.getElementById('stat-docs').textContent = data.documents.total_documents || 0;
+        document.getElementById('stat-size').textContent = formatBytes(data.documents.total_size_bytes || 0);
+        document.getElementById('stat-time').textContent = new Date().toLocaleTimeString();
+    } catch (error) {
+        document.getElementById('stat-status').textContent = '●';
+        document.getElementById('stat-status').style.color = '#f44336';
+        document.getElementById('stat-time').textContent = 'OFFLINE';
+    }
+}
+
+// Upload
+document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const fileInput = document.getElementById('fileInput');
+    const file = fileInput.files[0];
+    const statusDiv = document.getElementById('uploadStatus');
+    
+    if (!file) return;
+    
+    statusDiv.innerHTML = '<p class="loading">⏳ Uploading and indexing... Please wait.</p>';
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+        const response = await fetch(`${API_BASE}/upload`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            statusDiv.innerHTML = `
+                <div class="success">
+                    ✓ SUCCESS<br><br>
+                    <strong>File ID:</strong> ${data.file_id}<br>
+                    <strong>Filename:</strong> ${data.filename}<br>
+                    <strong>Size:</strong> ${formatBytes(data.size)}<br>
+                    <strong>Status:</strong> ${data.status}
+                </div>
+            `;
+            fileInput.value = '';
+            loadStats();
+        } else {
+            throw new Error(data.detail || 'Upload failed');
+        }
+    } catch (error) {
+        statusDiv.innerHTML = `<div class="error">✗ ERROR: ${error.message}</div>`;
+    }
+});
+
+// Search
+document.getElementById('searchForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const query = document.getElementById('searchQuery').value.trim();
+    const type = document.querySelector('input[name="searchType"]:checked').value;
+    const limit = document.getElementById('searchLimit').value;
+    
+    if (!query) return;
+    
+    const resultsDiv = document.getElementById('resultsContainer');
+    resultsDiv.innerHTML = '<p class="loading" style="padding: 30px; text-align: center;">⏳ Searching... Please wait.</p>';
+    
+    try {
+        if (type === 'comparison') {
+            await searchComparison(query, limit);
+        } else {
+            await searchNormal(query, type, limit);
+        }
+    } catch (error) {
+        resultsDiv.innerHTML = `<div class="error">✗ SEARCH ERROR: ${error.message}</div>`;
+    }
+});
+
+// Normal Search
+async function searchNormal(query, type, limit) {
+    const response = await fetch(`${API_BASE}/search?query=${encodeURIComponent(query)}&type=${type}&limit=${limit}`);
+    const data = await response.json();
+    
+    const resultsDiv = document.getElementById('resultsContainer');
+    
+    if (!response.ok) {
+        throw new Error(data.detail || 'Search failed');
+    }
+    
+    if (data.results.length === 0) {
+        resultsDiv.innerHTML = `<p style="padding: 20px; text-align: center;">No results found for query: <strong>${escapeHtml(query)}</strong></p>`;
+        return;
+    }
+    
+    let html = `
+        <div style="padding: 10px; background: #e3f2fd; border: 2px solid #2196f3; margin-bottom: 15px;">
+            <strong>Query:</strong> ${escapeHtml(query)} | 
+            <strong>Type:</strong> ${type.toUpperCase()} | 
+            <strong>Results:</strong> ${data.count}
+        </div>
+    `;
+    
+    data.results.forEach((result, idx) => {
+        html += renderResult(result, idx + 1, type);
+    });
+    
+    resultsDiv.innerHTML = html;
+}
+
+// Render single result
+function renderResult(result, rank, searchType) {
+    let html = `<div class="result">`;
+    
+    html += `<div class="result-header">[${rank}] ${escapeHtml(result.filename)}</div>`;
+    
+    // ADD RERANK SCORE DISPLAY
+    if (result.rerank_score !== undefined) {
+        const scorePercent = (result.rerank_score * 100).toFixed(1);
+        const scoreColor = result.rerank_score > 0.7 ? '#388e3c' : result.rerank_score > 0.4 ? '#f57c00' : '#d32f2f';
+        html += `<div style="padding: 8px; margin-bottom: 10px; background: #f0f0f0; border-left: 4px solid ${scoreColor};">
+            <strong>Relevance Score:</strong> <span style="font-size: 16px; font-weight: bold; color: ${scoreColor};">${scorePercent}%</span>
+            <span style="font-size: 11px; color: #666; margin-left: 10px;">(AI Reranked)</span>
+        </div>`;
+    }
+    // Meta
+    html += `<div class="result-meta">`;
+    html += `<div class="result-meta-grid">`;
+    html += `<div class="meta-item"><span class="meta-label">File ID:</span> ${result.file_id}</div>`;
+    html += `<div class="meta-item"><span class="meta-label">Size:</span> ${formatBytes(result.file_size)}</div>`;
+    html += `<div class="meta-item"><span class="meta-label">Type:</span> ${result.content_type || 'unknown'}</div>`;
+    html += `<div class="meta-item"><span class="meta-label">Indexed:</span> ${new Date(result.indexed_at).toLocaleString()}</div>`;
+    html += `<div class="meta-item"><span class="meta-label">Text Length:</span> ${result.text.length} chars</div>`;
+    html += `</div>`;
+    html += `</div>`;
+    
+    // Lexical match details
+    if (result.match_score) {
+        html += `<div class="match-details">`;
+        html += `<h3>LEXICAL MATCH DETAILS</h3>`;
+        html += `<div class="score-grid">`;
+        html += `<div class="score-item"><span class="score-value">${result.match_score.total_matches}</span><span class="score-label">Total Matches</span></div>`;
+        html += `<div class="score-item"><span class="score-value">${result.match_score.unique_terms_matched}</span><span class="score-label">Unique Terms</span></div>`;
+        html += `<div class="score-item"><span class="score-value">${result.match_score.match_density}</span><span class="score-label">Density (per 1K)</span></div>`;
+        html += `<div class="score-item"><span class="score-value">${result.match_score.query_coverage}%</span><span class="score-label">Query Coverage</span></div>`;
+        html += `</div>`;
+        
+        // Term frequencies
+        if (result.match_score.term_frequencies && Object.keys(result.match_score.term_frequencies).length > 0) {
+            html += `<div class="term-freq">`;
+            html += `<strong>Term Frequencies:</strong> `;
+            for (const [term, count] of Object.entries(result.match_score.term_frequencies)) {
+                html += `<span class="term-freq-item"><span class="term">${escapeHtml(term)}</span><span class="count">×${count}</span></span>`;
+            }
+            html += `</div>`;
+        }
+        html += `</div>`;
+    }
+    
+    // Semantic details
+    if (result.semantic_info) {
+        html += `<div class="semantic-details">`;
+        html += `<h3>SEMANTIC SIMILARITY DETAILS</h3>`;
+        html += `<div class="score-grid">`;
+        html += `<div class="score-item"><span class="score-value">${result.semantic_info.similarity_score}%</span><span class="score-label">Similarity Score</span></div>`;
+        html += `<div class="score-item"><span class="score-value">${result.semantic_info.distance}</span><span class="score-label">Vector Distance</span></div>`;
+        html += `<div class="score-item"><span class="score-value">${result.semantic_info.embedding_dim}</span><span class="score-label">Embedding Dim</span></div>`;
+        if (result.query_embedding_norm) {
+            html += `<div class="score-item"><span class="score-value">${result.query_embedding_norm}</span><span class="score-label">Query Vec Norm</span></div>`;
+        }
+        html += `</div>`;
+        html += `</div>`;
+    }
+    
+    // Hybrid details
+    if (result.hybrid_info) {
+        html += `<div class="hybrid-details">`;
+        html += `<h3>⚡ HYBRID SCORING DETAILS</h3>`;
+        html += `<div class="score-grid">`;
+        html += `<div class="score-item"><span class="score-value">${result.hybrid_info.combined_score}</span><span class="score-label">Combined Score</span></div>`;
+        html += `<div class="score-item"><span class="score-value">${result.hybrid_info.lexical_contribution}</span><span class="score-label">Lexical Part</span></div>`;
+        html += `<div class="score-item"><span class="score-value">${result.hybrid_info.semantic_contribution}</span><span class="score-label">Semantic Part</span></div>`;
+        html += `<div class="score-item"><span class="score-value">#${result.hybrid_info.lexical_rank}</span><span class="score-label">Lexical Rank</span></div>`;
+        html += `<div class="score-item"><span class="score-value">#${result.hybrid_info.semantic_rank}</span><span class="score-label">Semantic Rank</span></div>`;
+        html += `</div>`;
+        html += `</div>`;
+    }
+    
+    // Text preview
+    html += `<div class="result-text">${truncateText(result.text, 800)}</div>`;
+    
+    // Highlights
+    if (result.highlights && result.highlights.length > 0) {
+        html += `<div class="result-highlights">`;
+        html += `<h3>HIGHLIGHTED MATCHES (${result.highlights.length})</h3>`;
+        result.highlights.forEach((h, idx) => {
+            html += `<div class="highlight-item">`;
+            html += `<strong>[${idx + 1}]</strong> ${h.highlighted}`;
+            html += `<div class="highlight-meta">Position: ${h.position} | Term: "${escapeHtml(h.matched_term)}" | Context: ${h.context_chars} chars</div>`;
+            html += `</div>`;
+        });
+        html += `</div>`;
+    }
+    
+    html += `</div>`;
+    return html;
+}
+
+// Comparison Search
+async function searchComparison(query, limit) {
+    const response = await fetch(`${API_BASE}/search/compare?query=${encodeURIComponent(query)}&limit=${limit}`);
+    const data = await response.json();
+    
+    const resultsDiv = document.getElementById('resultsContainer');
+    
+    if (!response.ok) {
+        throw new Error(data.detail || 'Search failed');
+    }
+    
+    let html = `
+        <div class="query-stats">
+            <h3>🔍 QUERY ANALYSIS</h3>
+            <strong>Query:</strong> ${escapeHtml(query)}<br>
+            <strong>Term Count:</strong> ${data.query_stats.term_count} | 
+            <strong>Character Count:</strong> ${data.query_stats.char_count}
+            <div class="query-terms">
+                ${data.query_stats.terms.map(t => `<span class="query-term">${escapeHtml(t)}</span>`).join('')}
+            </div>
+        </div>
+    `;
+    
+    html += '<div class="comparison-container">';
+    
+    // Lexical Column
+    html += '<div class="comparison-column">';
+    html += '<h3>LEXICAL SEARCH</h3>';
+    html += `<p style="text-align: center; margin-bottom: 10px;"><strong>${data.lexical.length} Results</strong></p>`;
+    data.lexical.forEach((result, idx) => {
+        html += `<div class="comparison-result">`;
+        html += `<strong>[${idx + 1}] ${escapeHtml(result.filename)}</strong><br>`;
+        html += `<small>ID: ${result.file_id}</small><br>`;
+        if (result.match_score) {
+            html += `<small><strong>Matches:</strong> ${result.match_score.total_matches} | <strong>Density:</strong> ${result.match_score.match_density} | <strong>Coverage:</strong> ${result.match_score.query_coverage}%</small><br>`;
+        }
+        html += `<div style="margin-top: 5px; padding: 5px; background: #f9f9f9; font-size: 10px; max-height: 100px; overflow-y: auto;">${truncateText(result.text, 200)}</div>`;
+        html += `</div>`;
+    });
+    html += '</div>';
+    
+    // Semantic Column
+    html += '<div class="comparison-column">';
+    html += '<h3>SEMANTIC SEARCH</h3>';
+    html += `<p style="text-align: center; margin-bottom: 10px;"><strong>${data.semantic.length} Results</strong></p>`;
+    data.semantic.forEach((result, idx) => {
+        html += `<div class="comparison-result">`;
+        html += `<strong>[${idx + 1}] ${escapeHtml(result.filename)}</strong><br>`;
+        html += `<small>ID: ${result.file_id}</small><br>`;
+        if (result.semantic_info) {
+            html += `<small><strong>Similarity:</strong> ${result.semantic_info.similarity_score}% | <strong>Distance:</strong> ${result.semantic_info.distance}</small><br>`;
+        }
+        html += `<div style="margin-top: 5px; padding: 5px; background: #f9f9f9; font-size: 10px; max-height: 100px; overflow-y: auto;">${truncateText(result.text, 200)}</div>`;
+        html += `</div>`;
+    });
+    html += '</div>';
+    
+    // Hybrid Column
+    html += '<div class="comparison-column">';
+    html += '<h3>⚡ HYBRID SEARCH</h3>';
+    html += `<p style="text-align: center; margin-bottom: 10px;"><strong>${data.hybrid.length} Results</strong></p>`;
+    data.hybrid.forEach((result, idx) => {
+        html += `<div class="comparison-result">`;
+        html += `<strong>[${idx + 1}] ${escapeHtml(result.filename)}</strong><br>`;
+        html += `<small>ID: ${result.file_id}</small><br>`;
+        if (result.hybrid_info) {
+            html += `<small><strong>Score:</strong> ${result.hybrid_info.combined_score} | <strong>Lex Rank:</strong> #${result.hybrid_info.lexical_rank} | <strong>Sem Rank:</strong> #${result.hybrid_info.semantic_rank}</small><br>`;
+        }
+        html += `<div style="margin-top: 5px; padding: 5px; background: #f9f9f9; font-size: 10px; max-height: 100px; overflow-y: auto;">${truncateText(result.text, 200)}</div>`;
+        html += `</div>`;
+    });
+    html += '</div>';
+    
+    html += '</div>';
+    resultsDiv.innerHTML = html;
+}
+
+// Utilities
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function truncateText(text, maxLength) {
+    if (!text) return '[No text]';
+    text = escapeHtml(text);
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+
+</body>
+</html>
