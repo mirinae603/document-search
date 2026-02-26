@@ -1,5 +1,5 @@
-import os
-import io
+import os, httpx
+import io, json
 import logging
 import hashlib
 import asyncio
@@ -10,14 +10,15 @@ import lancedb
 from lancedb.pydantic import LanceModel, Vector
 import requests
 import numpy as np
-from fastapi import FastAPI, UploadFile, File, HTTPException, Query
+from fastapi import FastAPI, UploadFile, File, HTTPException, Query, BackgroundTasks, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import uvicorn
 from reranker import load_reranker_from_config
-
+from qa_agent import QAAgent
+from typing import Optional
 
 from embeddings import OpenRouterEmbeddings
 from extractor import extract_document_text
@@ -52,12 +53,14 @@ db = None
 indexer = None
 searcher = None
 embedder = None
-reranker = None 
+reranker = None
+qa_agent = None 
+_indexing_in_progress: set = set()
 
 # Configuration
 SEAWEED_FILER = os.getenv("SEAWEED_FILER", "http://localhost:8888")
 LANCEDB_PATH = os.getenv("LANCEDB_PATH", "./data/lancedb")
-OPENROUTER_KEY = "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"
+OPENROUTER_KEY = "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"
 EMBEDDING_DIM = 1536
 
 # Document Schema
@@ -70,6 +73,7 @@ class Document(LanceModel):
     content_type: str
     file_size: int
     indexed_at: str
+    metadata: Optional[str] = "{}" 
 
 # Document Indexer
 class DocumentIndexer:
@@ -113,55 +117,79 @@ class DocumentIndexer:
         return chunks
     
     async def index_document(self, file_path: str, content: bytes, filename: str, content_type: str) -> str:
-        """Index a document"""
+        global _indexing_in_progress
+
+        file_id = hashlib.sha256(file_path.encode()).hexdigest()[:16]
+
+        # Idempotency guard
+        if file_id in _indexing_in_progress:
+            logger.info(f"⏭ Already indexing {filename}, skipping duplicate")
+            return file_id
+        _indexing_in_progress.add(file_id)
+
         try:
-            file_id = hashlib.sha256(file_path.encode()).hexdigest()[:16]
-            
             # Extract text
             logger.info(f"Extracting text from {filename}...")
             text = await extract_document_text(content, content_type)
-            
             if not text or len(text.strip()) < 10:
                 text = f"[No text extracted from {filename}]"
-            
-            logger.info(f"✓ Extracted {len(text)} characters")
-            
+            logger.info(f"✓ Extracted {len(text)} chars")
+
             # Chunk and embed
             chunks = self._chunk_text(text)
             logger.info(f"Split into {len(chunks)} chunks")
-            
             embeddings = []
             for i, chunk in enumerate(chunks, 1):
                 logger.info(f"Embedding chunk {i}/{len(chunks)}...")
-                emb = await self.embedder.embed_text(chunk)
-                embeddings.append(emb)
-            
-            # Average embeddings
-            avg_embedding = np.mean(embeddings, axis=0)
-            vector_list = avg_embedding.tolist()
-            
-            # Create document
+                embeddings.append(await self.embedder.embed_text(chunk))
+
+            avg_vector = np.mean(embeddings, axis=0).tolist()
+
+            metadata_json = json.dumps({
+                "chunks":           len(chunks),
+                "char_count":       len(text),
+                "upload_timestamp": datetime.now().isoformat()
+            })
+
             doc = Document(
                 file_id=file_id,
                 filename=filename,
                 file_path=file_path,
                 text=text,
-                vector=vector_list,
+                vector=avg_vector,
                 content_type=content_type,
                 file_size=len(content),
-                indexed_at=datetime.now().isoformat()
+                indexed_at=datetime.now().isoformat(),
+                metadata=metadata_json
             )
-            
-            # Add to database
+
+            # Dedup: delete existing row for this file before adding
+            try:
+                self.table.delete(f'file_id = "{file_id}"')
+                logger.info(f"  Removed old index entry for {file_id}")
+            except Exception:
+                pass  # fine — row just doesn't exist yet
+
             self.table.add([doc])
-            self.table.create_fts_index("text", replace=True)
-            
-            logger.info(f"✓ Indexed {filename}")
+
+            # Rebuild FTS off the event loop (blocking call)
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None,
+                lambda: self.table.create_fts_index("text", replace=True)
+            )
+
+            logger.info(f"✓ Indexed + FTS rebuilt: {filename} → {file_id}")
             return file_id
-        
+
         except Exception as e:
-            logger.error(f"Failed to index: {e}")
+            logger.error(f"Failed to index {filename}: {e}")
             raise
+
+        finally:
+            _indexing_in_progress.discard(file_id)
+
+
     
     def get_stats(self) -> Dict:
         """Get statistics"""
@@ -186,6 +214,13 @@ class SearchEngine:
         except:
             self.table = None
     
+    def _refresh_table(self):
+        try:
+            self.table = self.db.open_table(self.table_name)
+        except Exception as e:
+            logger.warning(f"Table refresh failed: {e}")
+            self.table = None
+
     def _calculate_match_score(self, text: str, query: str) -> Dict:
         """Calculate detailed match statistics"""
         text_lower = text.lower()
@@ -330,77 +365,63 @@ class SearchEngine:
             return results
     
     async def lexical_search(self, query: str, limit: int = 10) -> List[Dict]:
-        """Full-text search with automatic reranking"""
+        self._refresh_table()
         if not self.table:
             return []
-        
+
         try:
-            # Fetch 3x more results for reranking
             fetch_limit = limit * 3 if self.reranker else limit
-            
             results = self.table.search(query, query_type="fts").limit(fetch_limit).to_list()
-            
+
             for r in results:
                 text = r.get('text', '')
-                
-                # Calculate match scores
-                match_info = self._calculate_match_score(text, query)
-                highlights = self._highlight_text(text, query)
-                
-                # Add data
-                r['match_score'] = match_info
-                r['highlights'] = highlights
+                r['match_score'] = self._calculate_match_score(text, query)
+                r['highlights']  = self._highlight_text(text, query)
                 r['search_type'] = 'lexical'
                 r['query_terms'] = query.split()
-            
-            # Apply reranking
+
             if self.reranker:
                 results = self._rerank_results(query, results, top_n=limit)
-            
+
             return results[:limit]
-        
+
         except Exception as e:
             logger.error(f"Lexical search failed: {e}")
             return []
+
     
     async def semantic_search(self, query: str, limit: int = 10) -> List[Dict]:
-        """Vector search with automatic reranking"""
+        self._refresh_table()
         if not self.table:
             return []
-        
+
         try:
-            # Fetch 3x more results for reranking
-            fetch_limit = limit * 3 if self.reranker else limit
-            
+            fetch_limit  = limit * 3 if self.reranker else limit
             query_vector = await self.embedder.embed_text(query)
-            vector_list = query_vector.tolist()
-            
+            vector_list  = query_vector.tolist()
+
             results = self.table.search(vector_list, query_type="vector").limit(fetch_limit).to_list()
-            
+
             for r in results:
-                # Calculate similarity
                 distance = r.get('_distance', 1.0)
-                similarity = 1 / (1 + distance)
-                
-                # Add semantic info
                 r['semantic_info'] = {
-                    "distance": round(distance, 6),
-                    "similarity_score": round(similarity * 100, 2),
-                    "embedding_dim": len(vector_list)
+                    "distance":         round(distance, 6),
+                    "similarity_score": round(1 / (1 + distance) * 100, 2),
+                    "embedding_dim":    len(vector_list)
                 }
-                r['highlights'] = []
-                r['search_type'] = 'semantic'
+                r['highlights']           = []
+                r['search_type']          = 'semantic'
                 r['query_embedding_norm'] = round(np.linalg.norm(query_vector), 4)
-            
-            # Apply reranking
+
             if self.reranker:
                 results = self._rerank_results(query, results, top_n=limit)
-            
+
             return results[:limit]
-        
+
         except Exception as e:
             logger.error(f"Semantic search failed: {e}")
             return []
+
     
     async def hybrid_search(self, query: str, limit: int = 10) -> List[Dict]:
         """Hybrid search with automatic reranking"""
@@ -510,7 +531,7 @@ class SearchEngine:
 # Startup
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global db, indexer, searcher, embedder, reranker
+    global db, indexer, searcher, embedder, reranker, qa_agent  # Add qa_agent
     
     # Connect to LanceDB
     os.makedirs(LANCEDB_PATH, exist_ok=True)
@@ -520,15 +541,19 @@ async def lifespan(app: FastAPI):
     embedder = OpenRouterEmbeddings(api_key=OPENROUTER_KEY)
     
     # Initialize reranker
-    reranker = load_reranker_from_config("./config/config.yaml")  # ADD THIS
+    reranker = load_reranker_from_config("./config/config.yaml")
     
     # Initialize indexer and searcher
     indexer = DocumentIndexer(db, embedder)
-    searcher = SearchEngine(db, embedder, reranker)  # ADD reranker param
+    searcher = SearchEngine(db, embedder, reranker)
     
-    logger.info("✓ System initialized")
+    # Initialize QA Agent - ADD THIS
+    qa_agent = QAAgent(searcher, SEAWEED_FILER, OPENROUTER_KEY)
+    
+    logger.info("✓ System initialized with Q&A Agent")
     yield
     logger.info("Shutting down")
+
 
 
 # FastAPI App
@@ -556,40 +581,86 @@ async def root():
 
 @app.post("/upload")
 async def upload(file: UploadFile = File(...)):
-    """Upload and index document"""
+    """Upload file to SeaweedFS — indexing triggered by filer webhook"""
     try:
         content = await file.read()
         file_path = f"/documents/{file.filename}"
-        
-        # Upload to SeaweedFS
-        try:
-            requests.post(f"{SEAWEED_FILER}/documents/", data="", timeout=5)
-        except:
-            pass
-        
+
+        # Just PUT to SeaweedFS — webhook handles indexing
         response = requests.put(
             f"{SEAWEED_FILER}{file_path}",
             data=content,
             headers={"Content-Type": file.content_type or "application/octet-stream"},
             timeout=30
         )
-        
+
         if response.status_code not in [200, 201, 204]:
             raise HTTPException(500, "SeaweedFS upload failed")
-        
-        # Index
-        file_id = await indexer.index_document(file_path, content, file.filename, file.content_type)
-        
+
         return {
-            "status": "success",
-            "file_id": file_id,
+            "status": "uploaded",        # not "indexed" yet
             "filename": file.filename,
-            "size": len(content)
+            "size": len(content),
+            "message": "Indexing will begin shortly via filer webhook"
         }
-    
+
     except Exception as e:
         logger.error(f"Upload failed: {e}")
         raise HTTPException(500, str(e))
+    
+@app.post("/webhook/seaweed")
+async def seaweed_webhook(request: Request):
+    try:
+        payload    = await request.json()
+        event_type = (payload.get("event_type") or payload.get("EventType") or "PUT").upper()
+
+        # 3.95 uses "key" for full file path
+        file_path  = (
+            payload.get("key") or
+            payload.get("Path") or
+            payload.get("path") or ""
+        )
+
+        logger.info(f"Webhook received: {event_type} → {file_path}")
+
+        if event_type not in ("PUT", "CREATE"):
+            return {"status": "ignored", "reason": f"event={event_type}"}
+
+        if not file_path or not file_path.startswith("/documents/"):
+            return {"status": "ignored", "reason": f"path='{file_path}'"}
+
+        file_id = hashlib.sha256(file_path.encode()).hexdigest()[:16]
+        if file_id in _indexing_in_progress:
+            return {"status": "skipped", "reason": "already indexing"}
+
+        # Extract mime from payload — avoids extra HTTP call for content-type
+        message      = payload.get("message", {})
+        new_entry    = message.get("new_entry", {})
+        attributes   = new_entry.get("attributes", {})
+        content_type = attributes.get("mime", "application/octet-stream")
+        filename     = file_path.split("/")[-1]
+
+        # Fetch file content from filer
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.get(f"{SEAWEED_FILER}{file_path}")
+
+        if resp.status_code != 200:
+            raise HTTPException(500, f"Filer fetch failed: {resp.status_code}")
+
+        asyncio.create_task(
+            indexer.index_document(file_path, resp.content, filename, content_type)
+        )
+
+        logger.info(f"✓ Webhook: indexing task fired for {filename}")
+        return {"status": "indexing", "filename": filename, "file_id": file_id}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Webhook failed: {e}")
+        raise HTTPException(500, str(e))
+
+
 
 @app.get("/search")
 async def search(
@@ -671,6 +742,258 @@ async def stats():
 @app.get("/health")
 async def health():
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+
+
+@app.post("/qa/ask")
+async def ask_question(
+    question: str = Query(...),   # ← remove min_length=3
+    top_k: int = Query(5, ge=1, le=10),
+    return_sources: bool = Query(True),
+    include_excerpts: bool = Query(True),
+    mode: str = Query("document", regex="^(document|general)$")
+):
+
+    """Ask a question — document-grounded or general LLM"""
+    try:
+        result = await qa_agent.answer_question(question, top_k, return_sources, include_excerpts, mode)
+        return result
+    except Exception as e:
+        logger.error(f"Q&A failed: {e}")
+        raise HTTPException(500, str(e))
+
+
+@app.post("/qa/conversation")
+async def conversation(
+    messages: List[Dict[str, str]],
+    top_k: int = Query(5, ge=1, le=10),
+    mode: str = Query("document", regex="^(document|general)$")  # ADD THIS
+):
+    """Multi-turn conversation — document-grounded or general LLM"""
+    try:
+        result = await qa_agent.multi_turn_conversation(messages, top_k, mode)
+        return result
+    except Exception as e:
+        logger.error(f"Conversation failed: {e}")
+        raise HTTPException(500, str(e))
+
+
+
+@app.get("/qa/sources")
+async def get_sources_for_question(
+    question: str = Query(..., min_length=3),
+    top_k: int = Query(5, ge=1, le=10)
+):
+    """Get relevant document sources for a question (without generating answer)"""
+    try:
+        documents = await qa_agent._retrieve_relevant_documents(question, top_k)
+        
+        sources = [{
+            'document_id': doc['id'],
+            'filename': doc['filename'],
+            'file_path': doc['file_path'],
+            'file_id': doc['file_id'],
+            'relevance_score': round(doc['relevance_score'], 4),
+            'preview_url': f"/preview?file_path={doc['file_path']}",
+            'text_preview': doc['text'][:500] + "..." if len(doc['text']) > 500 else doc['text']
+        } for doc in documents]
+        
+        return {
+            'question': question,
+            'sources': sources,
+            'count': len(sources)
+        }
+    except Exception as e:
+        logger.error(f"Source retrieval failed: {e}")
+        raise HTTPException(500, str(e))
+    
+@app.post("/admin/reindex")
+async def reindex_documents(
+    background_tasks: BackgroundTasks,
+    mode:       str           = Query("all", regex="^(all|file|date_range)$"),
+    file_path:  Optional[str] = Query(None,  description="e.g. /documents/report.pdf — required for mode=file"),
+    date_from:  Optional[str] = Query(None,  description="ISO format: 2026-01-01T00:00:00 — required for mode=date_range"),
+    date_to:    Optional[str] = Query(None,  description="ISO format: 2026-02-26T23:59:59 — required for mode=date_range"),
+    background: bool          = Query(True,  description="True = fast response, False = wait for full results")
+):
+    """
+    Manual re-index trigger.
+
+    Modes:
+      all         → re-index every file in SeaweedFS /documents/
+      file        → re-index one specific file  (needs file_path)
+      date_range  → re-index files between date_from and date_to (needs both)
+    """
+    try:
+        # ── Validate params per mode ──────────────────────────────
+        if mode == "file" and not file_path:
+            raise HTTPException(400, "file_path is required for mode=file")
+
+        if mode == "date_range":
+            if not date_from or not date_to:
+                raise HTTPException(400, "date_from and date_to required for mode=date_range")
+            try:
+                dt_from = datetime.fromisoformat(date_from)
+                dt_to   = datetime.fromisoformat(date_to)
+            except ValueError:
+                raise HTTPException(400, "Invalid date format. Use ISO: 2026-01-01T00:00:00")
+
+        # ── Fetch file listing from SeaweedFS Filer ───────────────
+        async with httpx.AsyncClient(timeout=15) as client:
+            list_resp = await client.get(
+                f"{SEAWEED_FILER}/documents/",
+                headers={"Accept": "application/json"},
+                params={"limit": 1000}
+            )
+
+        if list_resp.status_code != 200:
+            raise HTTPException(500, f"Could not list /documents/ from filer: {list_resp.status_code}")
+
+        # Log raw response for debugging
+        logger.info(f"Filer listing response: {list_resp.text[:500]}")
+
+        # SeaweedFS returns { "Directory": "/documents/", "Files": [...] }
+        filer_data  = list_resp.json()
+        all_entries = filer_data.get("Entries") or filer_data.get("Files") or []
+
+        if not all_entries:
+            return {
+                "status":  "nothing_to_index",
+                "message": "No files found in /documents/",
+                "raw_keys": list(filer_data.keys())   # helps debug key names
+            }
+
+        # ── Filter entries by mode ────────────────────────────────
+        entries_to_process = []
+
+        if mode == "all":
+            entries_to_process = all_entries
+
+        elif mode == "file":
+            for e in all_entries:
+                fname     = e.get("name") or e.get("FileName") or e.get("Name", "")
+                full_path = e.get("FullPath") or f"/documents/{fname}"
+                if full_path == file_path:
+                    entries_to_process.append(e)
+                    break
+            if not entries_to_process:
+                raise HTTPException(404, f"File not found in filer: {file_path}")
+
+        elif mode == "date_range":
+            for e in all_entries:
+                crtime_raw = e.get("Crtime") or e.get("crtime", "")
+                try:
+                    # SeaweedFS returns ISO string: "2026-02-15T09:27:55+05:30"
+                    entry_dt = datetime.fromisoformat(crtime_raw).replace(tzinfo=None) if crtime_raw else None
+                except ValueError:
+                    entry_dt = None
+
+                if entry_dt and dt_from <= entry_dt <= dt_to:
+                    entries_to_process.append(e)
+
+            if not entries_to_process:
+                return {
+                    "status":  "nothing_to_index",
+                    "message": f"No files found between {date_from} and {date_to}"
+                }
+
+        logger.info(f"Reindex mode={mode} → {len(entries_to_process)} file(s) to process")
+
+        # ── Per-entry processor ───────────────────────────────────
+        async def _process_entry(entry: dict) -> dict:
+            # SeaweedFS gives FullPath — extract filename from it
+            full_path = entry.get("FullPath", "")
+            fname     = full_path.split("/")[-1]   # "2458_250210_220407.pdf"
+            fpath     = full_path                  # "/documents/2458_250210_220407.pdf"
+
+            if not fname:
+                return {"path": fpath, "status": "skipped", "reason": "no filename"}
+
+            fid = hashlib.sha256(fpath.encode()).hexdigest()[:16]
+            if fid in _indexing_in_progress:
+                return {"path": fpath, "status": "skipped", "reason": "already indexing"}
+
+            try:
+                async with httpx.AsyncClient(timeout=60) as client:
+                    file_resp = await client.get(f"{SEAWEED_FILER}{fpath}")
+
+                if file_resp.status_code != 200:
+                    return {
+                        "path":   fpath,
+                        "status": "failed",
+                        "reason": f"filer returned {file_resp.status_code}"
+                    }
+
+                # Use Mime from filer entry directly — avoids content-type guessing
+                content_type = entry.get("Mime") or file_resp.headers.get("Content-Type", "application/octet-stream")
+                file_id      = await indexer.index_document(
+                    fpath, file_resp.content, fname, content_type
+                )
+
+                return {
+                    "path":     fpath,
+                    "status":   "indexed",
+                    "file_id":  file_id,
+                    "filename": fname
+                }
+
+            except Exception as e:
+                logger.error(f"Reindex failed for {fpath}: {e}")
+                return {"path": fpath, "status": "failed", "reason": str(e)}
+
+
+        # ── Background mode ───────────────────────────────────────
+        if background:
+            async def _run_all():
+                results = await asyncio.gather(*[_process_entry(e) for e in entries_to_process])
+                indexed = [r for r in results if r["status"] == "indexed"]
+                failed  = [r for r in results if r["status"] == "failed"]
+                skipped = [r for r in results if r["status"] == "skipped"]
+                logger.info(
+                    f"✓ Reindex complete → "
+                    f"indexed={len(indexed)} failed={len(failed)} skipped={len(skipped)}"
+                )
+                # Log any failures explicitly
+                for f in failed:
+                    logger.error(f"  ✗ {f['path']}: {f['reason']}")
+
+            background_tasks.add_task(_run_all)
+
+            return {
+                "status":  "queued",
+                "mode":    mode,
+                "queued":  len(entries_to_process),
+                "message": f"{len(entries_to_process)} file(s) queued for re-indexing. Check logs for progress."
+            }
+
+        # ── Foreground mode (background=false) ───────────────────
+        results = await asyncio.gather(*[_process_entry(e) for e in entries_to_process])
+
+        indexed = [r for r in results if r["status"] == "indexed"]
+        failed  = [r for r in results if r["status"] == "failed"]
+        skipped = [r for r in results if r["status"] == "skipped"]
+
+        return {
+            "status": "complete",
+            "mode":   mode,
+            "summary": {
+                "total":   len(entries_to_process),
+                "indexed": len(indexed),
+                "failed":  len(failed),
+                "skipped": len(skipped)
+            },
+            "details": {
+                "indexed": indexed,
+                "failed":  failed,
+                "skipped": skipped
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Reindex endpoint failed: {e}")
+        raise HTTPException(500, str(e))
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

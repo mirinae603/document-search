@@ -60,13 +60,13 @@ if [ ! -f "$PID_FILE" ]; then
     
     # Try to find and kill processes by name
     pkill -TERM -f "weed server" 2>/dev/null && echo -e "${GREEN}✓ Killed SeaweedFS${NC}"
-    pkill -TERM -f "app_production.py" 2>/dev/null && echo -e "${GREEN}✓ Killed FastAPI${NC}"
+    pkill -TERM -f "main.py" 2>/dev/null && echo -e "${GREEN}✓ Killed FastAPI${NC}"
     
     sleep 2
     
     # Force kill if still running
     pkill -9 -f "weed server" 2>/dev/null
-    pkill -9 -f "app_production.py" 2>/dev/null
+    pkill -9 -f "main.py" 2>/dev/null
     
     echo -e "\n${GREEN}Cleanup complete${NC}\n"
     exit 0
@@ -109,11 +109,11 @@ if pgrep -f "weed server" > /dev/null 2>&1; then
 fi
 
 # Check for any remaining FastAPI processes
-if pgrep -f "app_production.py" > /dev/null 2>&1; then
+if pgrep -f "main.py" > /dev/null 2>&1; then
     echo "Found orphaned FastAPI processes"
-    pkill -TERM -f "app_production.py" 2>/dev/null
+    pkill -TERM -f "main.py" 2>/dev/null
     sleep 3
-    pkill -9 -f "app_production.py" 2>/dev/null
+    pkill -9 -f "main.py" 2>/dev/null
     echo -e "${GREEN}✓ Cleaned up orphaned FastAPI${NC}"
 fi
 
