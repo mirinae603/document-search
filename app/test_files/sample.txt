@@ -1,0 +1,7 @@
+This is a sample text document for extraction testing.
+
+It contains multiple paragraphs with various formatting.
+Special characters: @#$%^&*()
+Numbers: 1234567890
+
+This file tests basic text extraction capabilities.

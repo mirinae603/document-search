@@ -1,6 +1,6 @@
 [leveldb2]
 enabled = true
-dir = "/Users/shivanshdarshan/Documents/Profession/DCC/lexical_search_prod/document-search/data/seaweedfs/filerldb2"
+dir = "/home/sohankolli/Desktop/document-search/data/seaweedfs/filerldb2"
 
 [notification.webhook]
 enabled = true

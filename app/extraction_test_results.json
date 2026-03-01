@@ -1,0 +1,199 @@
+{
+  "timestamp": "2026-02-14T04:46:30.472859",
+  "summary": {
+    "total": 17,
+    "passed": 6,
+    "failed": 0,
+    "warnings": 11,
+    "ocr_enabled": 3
+  },
+  "results": [
+    {
+      "file_type": ".pdf",
+      "mime_type": "application/pdf",
+      "category": "Document",
+      "status": "\u26a0\ufe0f No Test File",
+      "method": "-",
+      "text_length": 0,
+      "performance_ms": 0,
+      "ocr_used": false,
+      "notes": "No .pdf file found in test directory"
+    },
+    {
+      "file_type": ".docx",
+      "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "category": "Document",
+      "status": "\u26a0\ufe0f No Test File",
+      "method": "-",
+      "text_length": 0,
+      "performance_ms": 0,
+      "ocr_used": false,
+      "notes": "No .docx file found in test directory"
+    },
+    {
+      "file_type": ".doc",
+      "mime_type": "application/msword",
+      "category": "Document",
+      "status": "\u26a0\ufe0f No Test File",
+      "method": "-",
+      "text_length": 0,
+      "performance_ms": 0,
+      "ocr_used": false,
+      "notes": "No .doc file found in test directory"
+    },
+    {
+      "file_type": ".txt",
+      "mime_type": "text/plain",
+      "category": "Document",
+      "status": "\u2705 Passed",
+      "method": "kreuzberg",
+      "text_length": 215,
+      "performance_ms": 12.51,
+      "ocr_used": false,
+      "notes": ""
+    },
+    {
+      "file_type": ".html",
+      "mime_type": "text/html",
+      "category": "Document",
+      "status": "\u2705 Passed",
+      "method": "kreuzberg",
+      "text_length": 211,
+      "performance_ms": 4.14,
+      "ocr_used": false,
+      "notes": ""
+    },
+    {
+      "file_type": ".rtf",
+      "mime_type": "application/rtf",
+      "category": "Document",
+      "status": "\u26a0\ufe0f No Test File",
+      "method": "-",
+      "text_length": 0,
+      "performance_ms": 0,
+      "ocr_used": false,
+      "notes": "No .rtf file found in test directory"
+    },
+    {
+      "file_type": ".xlsx",
+      "mime_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "category": "Spreadsheet",
+      "status": "\u26a0\ufe0f No Test File",
+      "method": "-",
+      "text_length": 0,
+      "performance_ms": 0,
+      "ocr_used": false,
+      "notes": "No .xlsx file found in test directory"
+    },
+    {
+      "file_type": ".xls",
+      "mime_type": "application/vnd.ms-excel",
+      "category": "Spreadsheet",
+      "status": "\u26a0\ufe0f No Test File",
+      "method": "-",
+      "text_length": 0,
+      "performance_ms": 0,
+      "ocr_used": false,
+      "notes": "No .xls file found in test directory"
+    },
+    {
+      "file_type": ".csv",
+      "mime_type": "text/csv",
+      "category": "Spreadsheet",
+      "status": "\u2705 Passed",
+      "method": "kreuzberg",
+      "text_length": 152,
+      "performance_ms": 1.14,
+      "ocr_used": false,
+      "notes": ""
+    },
+    {
+      "file_type": ".pptx",
+      "mime_type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "category": "Presentation",
+      "status": "\u26a0\ufe0f No Test File",
+      "method": "-",
+      "text_length": 0,
+      "performance_ms": 0,
+      "ocr_used": false,
+      "notes": "No .pptx file found in test directory"
+    },
+    {
+      "file_type": ".ppt",
+      "mime_type": "application/vnd.ms-powerpoint",
+      "category": "Presentation",
+      "status": "\u26a0\ufe0f No Test File",
+      "method": "-",
+      "text_length": 0,
+      "performance_ms": 0,
+      "ocr_used": false,
+      "notes": "No .ppt file found in test directory"
+    },
+    {
+      "file_type": ".png",
+      "mime_type": "image/png",
+      "category": "Image",
+      "status": "\u2705 Passed",
+      "method": "tesseract_ocr",
+      "text_length": 153,
+      "performance_ms": 473.24,
+      "ocr_used": true,
+      "notes": ""
+    },
+    {
+      "file_type": ".jpg",
+      "mime_type": "image/jpeg",
+      "category": "Image",
+      "status": "\u2705 Passed",
+      "method": "tesseract_ocr",
+      "text_length": 152,
+      "performance_ms": 490.49,
+      "ocr_used": true,
+      "notes": ""
+    },
+    {
+      "file_type": ".tiff",
+      "mime_type": "image/tiff",
+      "category": "Image",
+      "status": "\u26a0\ufe0f No Test File",
+      "method": "-",
+      "text_length": 0,
+      "performance_ms": 0,
+      "ocr_used": false,
+      "notes": "No .tiff file found in test directory"
+    },
+    {
+      "file_type": ".bmp",
+      "mime_type": "image/bmp",
+      "category": "Image",
+      "status": "\u2705 Passed",
+      "method": "tesseract_ocr",
+      "text_length": 153,
+      "performance_ms": 437.86,
+      "ocr_used": true,
+      "notes": ""
+    },
+    {
+      "file_type": ".webp",
+      "mime_type": "image/webp",
+      "category": "Image",
+      "status": "\u26a0\ufe0f No Test File",
+      "method": "-",
+      "text_length": 0,
+      "performance_ms": 0,
+      "ocr_used": false,
+      "notes": "No .webp file found in test directory"
+    },
+    {
+      "file_type": "_scanned.pdf",
+      "mime_type": "application/pdf",
+      "category": "Scanned",
+      "status": "\u26a0\ufe0f No Test File",
+      "method": "-",
+      "text_length": 0,
+      "performance_ms": 0,
+      "ocr_used": false,
+      "notes": "No _scanned.pdf file found in test directory"
+    }
+  ]
+}
