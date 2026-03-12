@@ -60,7 +60,7 @@ _indexing_in_progress: set = set()
 # Configuration
 SEAWEED_FILER = os.getenv("SEAWEED_FILER", "http://localhost:8888")
 LANCEDB_PATH = os.getenv("LANCEDB_PATH", "./data/lancedb")
-OPENROUTER_KEY = "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"
+OPENROUTER_KEY = "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"
 EMBEDDING_DIM = 1536
 
 # Document Schema

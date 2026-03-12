@@ -3,7 +3,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional
 from contextlib import asynccontextmanager
-
+from scoped_router import router as scoped_router, init_scoped_router
 import httpx
 import numpy as np
 import requests
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # ── Config ───────────────────────────────────────────────────────
 SEAWEED_FILER  = os.getenv("SEAWEED_FILER", "http://localhost:8888")
 LANCEDB_PATH   = os.getenv("LANCEDB_PATH", "./data/lancedb")
-OPENROUTER_KEY = "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"
+OPENROUTER_KEY = "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"
 
 # ── Globals ──────────────────────────────────────────────────────
 db = indexer = searcher = embedder = reranker = qa_agent = None
@@ -66,13 +66,27 @@ async def lifespan(app: FastAPI):
     searcher = SearchEngine(db, embedder, reranker)
     qa_agent = QAAgent(searcher, SEAWEED_FILER, OPENROUTER_KEY)
 
+    init_scoped_router(
+        embedder=embedder,
+        searcher=searcher,
+        qa_agent=qa_agent,
+        db_conn=db
+    )
+
+    # mount router AFTER initialization
+    app.include_router(scoped_router, prefix="/scoped", tags=["Scoped Q&A"])
+
     logger.info("✓ System initialized with Q&A Agent")
+
     yield
+
     logger.info("Shutting down")
 
 
 # ── App ───────────────────────────────────────────────────────────
 app = FastAPI(title="Document Search System", version="2.0", lifespan=lifespan)
+
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -133,7 +147,7 @@ async def seaweed_webhook(request: Request):
 
         logger.info(f"Webhook received: {event_type} → {file_path}")
 
-        if event_type not in ("PUT", "CREATE"):
+        if event_type not in ("PUT", "CREATE", "RENAME"):
             return {"status": "ignored", "reason": f"event={event_type}"}
         if not file_path or not file_path.startswith("/documents/"):
             return {"status": "ignored", "reason": f"path='{file_path}'"}
@@ -381,4 +395,6 @@ async def reindex_documents(
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    

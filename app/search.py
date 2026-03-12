@@ -11,15 +11,22 @@ class SearchEngine:
         self.db = db_conn
         self.embedder = embedder
         self.reranker = reranker
-        self.table_name = "documents"
+        self.chunks_table_name = "chunks"
+        self.documents_table_name = "documents"
         self._refresh_table()
 
     def _refresh_table(self):
         try:
-            self.table = self.db.open_table(self.table_name)
+            self.chunks_table = self.db.open_table(self.chunks_table_name)
         except Exception as e:
-            logger.warning(f"Table refresh failed: {e}")
-            self.table = None
+            logger.warning(f"Chunks table refresh failed: {e}")
+            self.chunks_table = None
+
+        try:
+            self.documents_table = self.db.open_table(self.documents_table_name)
+        except Exception as e:
+            logger.warning(f"Documents table refresh failed: {e}")
+            self.documents_table = None
 
     # ── Scoring helpers ──────────────────────────────────────────
 
@@ -122,11 +129,11 @@ class SearchEngine:
 
     async def lexical_search(self, query: str, limit: int = 10) -> List[Dict]:
         self._refresh_table()
-        if not self.table:
+        if not self.chunks_table:
             return []
         try:
             fetch_limit = limit * 3 if self.reranker else limit
-            results = self.table.search(query, query_type="fts").limit(fetch_limit).to_list()
+            results = self.chunks_table.search(query, query_type="fts").limit(fetch_limit).to_list()
             for r in results:
                 text = r.get("text", "")
                 r["match_score"] = self._calculate_match_score(text, query)
@@ -142,13 +149,13 @@ class SearchEngine:
 
     async def semantic_search(self, query: str, limit: int = 10) -> List[Dict]:
         self._refresh_table()
-        if not self.table:
+        if not self.chunks_table:
             return []
         try:
             fetch_limit = limit * 3 if self.reranker else limit
             query_vector = await self.embedder.embed_text(query)
             vector_list = query_vector.tolist()
-            results = self.table.search(vector_list, query_type="vector").limit(fetch_limit).to_list()
+            results = self.chunks_table.search(vector_list, query_type="vector").limit(fetch_limit).to_list()
             for r in results:
                 distance = r.get("_distance", 1.0)
                 r["semantic_info"] = {
@@ -167,7 +174,7 @@ class SearchEngine:
             return []
 
     async def hybrid_search(self, query: str, limit: int = 10) -> List[Dict]:
-        if not self.table:
+        if not self.chunks_table:
             return []
         try:
             fetch_limit = limit * 2
@@ -178,9 +185,9 @@ class SearchEngine:
 
             scores = {}
             for idx, r in enumerate(lexical_results):
-                fid = r.get("file_id")
-                if fid:
-                    scores[fid] = {
+                cid = r.get("chunk_id")
+                if cid:
+                    scores[cid] = {
                         "doc": r,
                         "lexical_score": r.get("match_score", {}).get("match_density", 0),
                         "lexical_rank": idx + 1,
@@ -188,20 +195,20 @@ class SearchEngine:
                         "semantic_rank": 0
                     }
             for idx, r in enumerate(semantic_results):
-                fid = r.get("file_id")
-                if fid:
+                cid = r.get("chunk_id")
+                if cid:
                     sem_score = r.get("semantic_info", {}).get("similarity_score", 0)
-                    if fid in scores:
-                        scores[fid]["semantic_score"] = sem_score
-                        scores[fid]["semantic_rank"] = idx + 1
+                    if cid in scores:
+                        scores[cid]["semantic_score"] = sem_score
+                        scores[cid]["semantic_rank"] = idx + 1
                     else:
-                        scores[fid] = {
+                        scores[cid] = {
                             "doc": r,
                             "lexical_score": 0, "lexical_rank": 0,
                             "semantic_score": sem_score, "semantic_rank": idx + 1
                         }
 
-            for fid, data in scores.items():
+            for cid, data in scores.items():
                 lex_rank_norm = 1 / (data["lexical_rank"] + 1) if data["lexical_rank"] > 0 else 0
                 sem_rank_norm = 1 / (data["semantic_rank"] + 1) if data["semantic_rank"] > 0 else 0
                 hybrid_score = (
@@ -245,3 +252,4 @@ class SearchEngine:
             "semantic": semantic,
             "hybrid": hybrid
         }
+        

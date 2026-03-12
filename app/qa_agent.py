@@ -30,38 +30,7 @@ class QAAgent:
 
     # ─── SHARED HELPERS ──────────────────────────────────────────
 
-    def _extract_excerpts_from_documents(self, question: str, documents: List[Dict], max_excerpts: int = 5) -> List[Dict]:
-        excerpts = []
-        query_terms = set(question.lower().split())
-
-        for doc in documents:
-            text = doc.get('text', '')
-            sentences = re.split(r'[.!?]\s+', text)
-
-            for sentence_idx, sentence in enumerate(sentences):
-                if len(sentence.strip()) < 20:
-                    continue
-                sentence_lower = sentence.lower()
-                matched_terms = sum(1 for t in query_terms if t in sentence_lower)
-                relevance = matched_terms / len(query_terms) if query_terms else 0
-
-                if relevance > 0.3:
-                    char_position = text.find(sentence)
-                    excerpts.append({
-                        'document_id': doc['id'],
-                        'filename': doc['filename'],
-                        'text': sentence.strip(),
-                        'relevance_score': round(relevance, 3),
-                        'matched_terms': matched_terms,
-                        'sentence_index': sentence_idx,
-                        'char_position': char_position,
-                        'length': len(sentence),
-                        'context_before': text[max(0, char_position - 100):char_position] if char_position > 0 else '',
-                        'context_after': text[char_position + len(sentence):char_position + len(sentence) + 100] if char_position >= 0 else ''
-                    })
-
-        excerpts.sort(key=lambda x: x['relevance_score'], reverse=True)
-        return excerpts[:max_excerpts]
+    
 
     def _calculate_answer_confidence(self, answer: str, documents: List[Dict], excerpts: List[Dict]) -> Dict:
         doc_coverage = min(len(documents) / 5, 1.0)
@@ -173,22 +142,27 @@ class QAAgent:
     # ─── DOCUMENT RETRIEVAL ──────────────────────────────────────
 
     async def _retrieve_relevant_documents(self, question: str, top_k: int = 5) -> List[Dict]:
+
         try:
             results = await self.searcher.hybrid_search(question, limit=top_k)
             documents = []
             for idx, result in enumerate(results, 1):
                 documents.append({
                     'id': idx,
+                    'chunk_id': result.get('chunk_id'),
                     'file_id': result.get('file_id'),
                     'filename': result.get('filename'),
                     'file_path': result.get('file_path'),
-                    'text': result.get('text', '')[:4000],
-                    'full_text_length': len(result.get('text', '')),
+                    'text': result.get('text', ''),        
+                    'chunk_index': result.get('chunk_index'),
+                    'char_start': result.get('char_start'),
+                    'char_end': result.get('char_end'),
+                    'token_count': result.get('token_count'),
                     'relevance_score': result.get('rerank_score') or result.get('hybrid_info', {}).get('combined_score', 0),
                     'search_type': result.get('search_type', 'hybrid'),
                     'indexed_at': result.get('indexed_at', 'unknown')
                 })
-            logger.info(f"✓ Retrieved {len(documents)} documents")
+            logger.info(f"✓ Retrieved {len(documents)} chunks")
             return documents
         except Exception as e:
             logger.error(f"Document retrieval failed: {e}")
@@ -275,7 +249,8 @@ Provide a detailed answer with inline citations."""
         question: str,
         top_k: int = 5,
         return_sources: bool = True,
-        include_excerpts: bool = True,
+        
+
         mode: str = "document"   # "document" | "general"
     ) -> Dict:
         start_time = datetime.now()
@@ -301,7 +276,9 @@ Provide a detailed answer with inline citations."""
                         'relevance_score': round(doc['relevance_score'], 4),
                         'preview_url': f"/preview?file_path={doc['file_path']}",
                         'text_preview': doc['text'][:300] + "..." if len(doc['text']) > 300 else doc['text'],
-                        'full_text_length': doc['full_text_length'],
+                        'chunk_index': doc['chunk_index'],
+                        'char_start': doc['char_start'],
+                        'char_end': doc['char_end'],
                         'indexed_at': doc['indexed_at'],
                         'times_cited_in_answer': len(doc_citations),
                         'citation_details': doc_citations
@@ -312,7 +289,7 @@ Provide a detailed answer with inline citations."""
                     'answer': answer_data['content'],
                     'mode': 'general',
                     'sources': sources,
-                    'excerpts': [],
+                    
                     'citations': {
                         'total_citations': len(parsed_citations),
                         'unique_documents_cited': len(set(c['document_id'] for c in parsed_citations)),
@@ -346,7 +323,7 @@ Provide a detailed answer with inline citations."""
                     'answer': "No relevant documents found. Try switching to General mode for a knowledge-based answer.",
                     'mode': 'document',
                     'sources': [],
-                    'excerpts': [],
+                    
                     'citations': {'total_citations': 0, 'unique_documents_cited': 0, 'citation_details': []},
                     'confidence': None,
                     'answer_analysis': {},
@@ -354,11 +331,11 @@ Provide a detailed answer with inline citations."""
                     'metadata': {'documents_retrieved': 0, 'model': self.model, 'tokens_used': 0}
                 }
 
-            excerpts = self._extract_excerpts_from_documents(question, documents) if include_excerpts else []
+            
             answer_data = await self._generate_document_answer(question, documents)
             answer = answer_data['content']
 
-            confidence_metrics = self._calculate_answer_confidence(answer, documents, excerpts)
+            
             parsed_citations = self._parse_citations_from_answer(answer)
             answer_analysis = self._detect_answer_type(question, answer)
             follow_up_questions = self._generate_follow_up_questions(question, answer, documents)
@@ -374,7 +351,10 @@ Provide a detailed answer with inline citations."""
                     'relevance_score': round(doc['relevance_score'], 4),
                     'preview_url': f"/preview?file_path={doc['file_path']}",
                     'text_preview': doc['text'][:300] + "..." if len(doc['text']) > 300 else doc['text'],
-                    'full_text_length': doc['full_text_length'],
+                    'chunk_index': doc['chunk_index'],
+                    'char_start': doc['char_start'],
+                    'char_end': doc['char_end'],
+                    
                     'indexed_at': doc['indexed_at'],
                     'times_cited_in_answer': len(doc_citations),
                     'citation_details': doc_citations
@@ -387,13 +367,13 @@ Provide a detailed answer with inline citations."""
                 'answer': answer,
                 'mode': 'document',
                 'sources': sources if return_sources else [],
-                'excerpts': excerpts if include_excerpts else [],
+                
                 'citations': {
                     'total_citations': len(parsed_citations),
                     'unique_documents_cited': len(set(c['document_id'] for c in parsed_citations)),
                     'citation_details': parsed_citations
                 },
-                'confidence': confidence_metrics,
+                'confidence': None,
                 'answer_analysis': answer_analysis,
                 'follow_up_questions': follow_up_questions,
                 'metadata': {

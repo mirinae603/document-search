@@ -73,24 +73,37 @@
 #         print("   pip install sentence-transformers")
 #         print("   Update config.yaml: provider: 'local'")
 
-from openai import OpenAI
+# from openai import OpenAI
 
-client = OpenAI(
-  base_url="https://openrouter.ai/api/v1",
-  api_key="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",
-)
+# client = OpenAI(
+#   base_url="https://openrouter.ai/api/v1",
+#   api_key="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",
+# )
 
-completion = client.chat.completions.create(
-  extra_headers={
-  },
-  extra_body={},
-#   model="google/gemma-3-12b-it:free",
-  model="stepfun/step-3.5-flash:free",
-  messages=[
-    {
-      "role": "user",
-      "content": "What is the meaning of life?"
-    }
-  ]
-)
-print(completion.choices[0].message.content)
+# completion = client.chat.completions.create(
+#   extra_headers={
+#   },
+#   extra_body={},
+# #   model="google/gemma-3-12b-it:free",
+#   model="stepfun/step-3.5-flash:free",
+#   messages=[
+#     {
+#       "role": "user",
+#       "content": "What is the meaning of life?"
+#     }
+#   ]
+# )
+# print(completion.choices[0].message.content)
+
+
+import lancedb
+
+db = lancedb.connect("/home/sohan/document-search/data/lancedb")
+
+docs = db.open_table("documents").to_pandas()
+print(f"Documents: {len(docs)}")
+print(docs[["file_id", "filename"]].head())
+
+chunks = db.open_table("chunks").to_pandas()
+print(f"\nChunks: {len(chunks)}")
+print(chunks[["chunk_id", "file_id", "chunk_index", "char_start", "char_end"]].head(10))
