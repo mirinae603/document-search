@@ -1,496 +1,638 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document Search System - Feature Rich</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Courier New', monospace; font-size: 11px; padding: 10px; background: #f5f5f5; color: #000; }
-        h1 { font-size: 18px; margin-bottom: 10px; border-bottom: 3px solid #000; padding-bottom: 5px; background: #000; color: #fff; padding: 10px; }
-        h2 { font-size: 14px; margin: 15px 0 5px 0; border-bottom: 2px solid #333; padding: 5px; background: #333; color: #fff; }
-        h3 { font-size: 12px; margin: 10px 0 5px 0; border-bottom: 1px solid #666; font-weight: bold; }
-        
-        .section { margin-bottom: 20px; border: 2px solid #000; padding: 15px; background: #fff; }
-        
-        /* Upload */
-        #uploadForm { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-        #uploadForm input[type="file"] { flex: 1; padding: 8px; border: 2px solid #000; min-width: 300px; }
-        #uploadForm button { padding: 8px 20px; background: #000; color: #fff; border: none; cursor: pointer; font-weight: bold; font-family: monospace; }
-        #uploadForm button:hover { background: #333; }
-        #uploadStatus { margin-top: 10px; padding: 10px; border: 1px solid #ccc; min-height: 30px; background: #fafafa; }
-        
-        /* Search */
-        #searchForm { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
-        #searchQuery { flex: 1; padding: 8px; border: 2px solid #000; font-family: 'Courier New', monospace; font-size: 12px; min-width: 300px; }
-        #searchForm button { padding: 8px 20px; background: #000; color: #fff; border: none; cursor: pointer; font-weight: bold; font-family: monospace; }
-        #searchForm button:hover { background: #333; }
-        
-        .search-mode { display: flex; gap: 15px; margin-bottom: 10px; flex-wrap: wrap; }
-        .search-mode label { display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 5px 10px; border: 1px solid #ccc; background: #f9f9f9; }
-        .search-mode label:hover { background: #e9e9e9; }
-        .search-mode input[type="radio"]:checked + span { font-weight: bold; }
-        
-        .search-controls { display: flex; gap: 10px; align-items: center; }
-        .search-controls label { font-weight: bold; }
-        .search-controls input { padding: 5px; border: 2px solid #000; width: 70px; font-family: monospace; }
-        
-        /* Results */
-        .result { border: 2px solid #000; padding: 15px; margin-bottom: 15px; background: #fff; }
-        .result-header { font-weight: bold; font-size: 13px; margin-bottom: 8px; padding: 5px; background: #000; color: #fff; }
-        .result-meta { font-size: 10px; color: #666; margin-bottom: 8px; padding: 5px; background: #f0f0f0; border-left: 3px solid #666; }
-        .result-meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 5px; margin-top: 5px; }
-        .meta-item { padding: 3px 5px; background: #fff; border: 1px solid #ddd; }
-        .meta-label { font-weight: bold; color: #000; }
-        
-        /* Match Score Details */
-        .match-details { margin: 10px 0; padding: 10px; background: #fffacd; border: 2px solid #ffd700; }
-        .match-details h3 { color: #000; background: #ffd700; padding: 5px; margin: -10px -10px 10px -10px; }
-        .score-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
-        .score-item { padding: 8px; background: #fff; border: 1px solid #ddd; text-align: center; }
-        .score-value { font-size: 16px; font-weight: bold; color: #000; display: block; margin-bottom: 3px; }
-        .score-label { font-size: 9px; color: #666; text-transform: uppercase; }
-        
-        /* Term Frequencies */
-        .term-freq { margin-top: 8px; }
-        .term-freq-item { display: inline-block; margin: 3px; padding: 4px 8px; background: #e3f2fd; border: 1px solid #2196f3; border-radius: 3px; }
-        .term-freq-item .term { font-weight: bold; color: #1976d2; }
-        .term-freq-item .count { color: #0d47a1; margin-left: 5px; }
-        
-        /* Semantic Info */
-        .semantic-details { margin: 10px 0; padding: 10px; background: #e8f5e9; border: 2px solid #4caf50; }
-        .semantic-details h3 { color: #000; background: #4caf50; padding: 5px; margin: -10px -10px 10px -10px; }
-        
-        /* Hybrid Info */
-        .hybrid-details { margin: 10px 0; padding: 10px; background: #f3e5f5; border: 2px solid #9c27b0; }
-        .hybrid-details h3 { color: #000; background: #9c27b0; color: #fff; padding: 5px; margin: -10px -10px 10px -10px; }
-        
-        /* Highlights */
-        .result-text { margin: 10px 0; padding: 10px; background: #f5f5f5; border-left: 4px solid #000; max-height: 300px; overflow-y: auto; font-size: 11px; line-height: 1.6; }
-        .result-highlights { margin-top: 10px; }
-        .highlight-item { margin: 8px 0; padding: 8px; background: #fff3cd; border-left: 3px solid #ff9800; font-size: 11px; }
-        .highlight-item mark { background: #ffeb3b; padding: 2px 4px; font-weight: bold; }
-        .highlight-meta { font-size: 9px; color: #666; margin-top: 3px; }
-        
-        /* Comparison View */
-        .comparison-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
-        .comparison-column { border: 2px solid #000; padding: 15px; background: #fff; }
-        .comparison-column h3 { font-size: 13px; margin-bottom: 15px; text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; background: #000; color: #fff; padding: 8px; margin: -15px -15px 15px -15px; }
-        .comparison-result { border: 1px solid #666; padding: 10px; margin-bottom: 10px; background: #fafafa; }
-        
-        /* Query Stats */
-        .query-stats { padding: 10px; background: #e3f2fd; border: 2px solid #2196f3; margin-bottom: 15px; }
-        .query-stats h3 { margin-bottom: 8px; color: #1976d2; }
-        .query-terms { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px; }
-        .query-term { padding: 3px 8px; background: #fff; border: 1px solid #2196f3; border-radius: 3px; font-weight: bold; }
-        
-        /* Stats */
-        #stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; font-size: 11px; }
-        .stat-item { padding: 10px; border: 2px solid #000; background: #fff; text-align: center; }
-        .stat-value { font-size: 20px; font-weight: bold; display: block; margin-bottom: 5px; }
-        .stat-label { font-size: 10px; color: #666; text-transform: uppercase; }
-        
-        /* Status indicators */
-        .loading { color: #ff9800; font-style: italic; font-weight: bold; }
-        .error { color: #fff; background: #f44336; border: 2px solid #c62828; padding: 10px; font-weight: bold; }
-        .success { color: #fff; background: #4caf50; border: 2px solid #2e7d32; padding: 10px; font-weight: bold; }
-        
-        /* Scrollbar styling */
-        ::-webkit-scrollbar { width: 10px; height: 10px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #888; border: 1px solid #666; }
-        ::-webkit-scrollbar-thumb:hover { background: #555; }
-    </style>
+<meta charset="UTF-8">
+<title>Search + Chat</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: monospace; font-size: 12px; background: #111; color: #ddd; display: flex; height: 100vh; overflow: hidden; }
+
+  #left { width: 460px; border-right: 1px solid #333; display: flex; flex-direction: column; }
+  #search-bar { padding: 10px; display: flex; gap: 6px; border-bottom: 1px solid #333; flex-shrink: 0; }
+  #q { flex: 1; background: #1a1a1a; border: 1px solid #333; color: #ddd; padding: 7px 10px; font-family: monospace; font-size: 12px; }
+  #q:focus { outline: none; border-color: #555; }
+  button { background: #ddd; color: #111; border: none; padding: 7px 14px; cursor: pointer; font-family: monospace; font-size: 12px; font-weight: bold; }
+  button:hover { background: #fff; }
+  button:disabled { background: #333; color: #666; cursor: not-allowed; }
+
+  #upload-trigger { padding: 6px 10px; background:#161616; border-bottom:1px solid #333; }
+  #upload-open-btn { width: 100%; font-size: 10px; padding: 5px; background: #0d1c2e; color: #3b82f6; border: 1px dashed #3b82f6; cursor: pointer; font-family: monospace; font-weight: bold; }
+  #upload-open-btn:hover { background: #1d3a5e; color: #fff; }
+
+  #global-chat-btn-wrap { padding: 6px 10px; background:#161616; border-bottom:1px solid #333; }
+  #global-chat-btn { width:100%; font-size:10px; padding:5px; background:#0d2e1c; color:#22c55e; border:1px dashed #22c55e; cursor:pointer; font-family:monospace; font-weight:bold; }
+  #global-chat-btn:hover { background:#166534; color:#fff; }
+
+  /* Query expansion bar */
+  #expansion-bar { padding: 5px 10px; background: #0d1a0d; border-bottom: 1px solid #1a3a1a; font-size: 10px; color: #2a5a2a; display: none; gap: 6px; align-items: center; flex-wrap: wrap; flex-shrink: 0; }
+  #expansion-bar.show { display: flex; }
+  #expansion-bar .exp-label { color: #4a8a4a; }
+  .exp-term { background: #1a3a1a; color: #4ade80; padding: 1px 7px; border-radius: 3px; font-size: 9px; border: 1px solid #2a5a2a; }
+
+  #filter-toggle { padding: 6px 10px; background: #161616; border-bottom: 1px solid #222; cursor: pointer; font-size: 10px; color: #555; display: flex; align-items: center; gap: 6px; user-select: none; flex-shrink: 0; }
+  #filter-toggle:hover { color: #aaa; }
+  #f-dot { margin-left: auto; font-size: 9px; color: #3b82f6; display: none; }
+  #filter-panel { background: #161616; border-bottom: 1px solid #333; padding: 10px; display: none; flex-direction: column; gap: 8px; flex-shrink: 0; }
+  #filter-panel.open { display: flex; }
+  .fr { display: flex; align-items: center; gap: 8px; }
+  .fl { font-size: 10px; color: #555; width: 72px; flex-shrink: 0; }
+  .fc { display: flex; gap: 4px; flex-wrap: wrap; }
+  .fk { font-size: 9px; padding: 3px 8px; border-radius: 2px; cursor: pointer; background: #222; color: #666; border: 1px solid #333; font-family: monospace; }
+  .fk:hover { color: #aaa; }
+  .fk.on { background: #1d3a5e; color: #3b82f6; border-color: #3b82f6; }
+  .fd { display: flex; gap: 6px; align-items: center; flex: 1; }
+  .fd input { background: #1a1a1a; border: 1px solid #333; color: #ddd; padding: 4px 8px; font-family: monospace; font-size: 10px; flex: 1; min-width: 0; }
+  .fd input:focus { outline: none; border-color: #555; }
+  .fd span { color: #444; font-size: 10px; }
+  #fa { display: flex; gap: 6px; justify-content: flex-end; padding-top: 6px; border-top: 1px solid #222; }
+  .f-clr { font-size: 10px; padding: 4px 10px; background: transparent; color: #555; border: 1px solid #333; cursor: pointer; font-family: monospace; }
+  .f-clr:hover { color: #ef4444; border-color: #ef4444; background: transparent; }
+
+  #tabs { display: flex; border-bottom: 1px solid #333; background: #1a1a1a; flex-shrink: 0; }
+  .tab { padding: 7px 14px; cursor: pointer; color: #666; font-size: 11px; letter-spacing: 1px; border-bottom: 2px solid transparent; }
+  .tab.active { color: #ddd; border-bottom-color: #ddd; }
+  .badge { background: #333; color: #888; font-size: 9px; padding: 1px 5px; margin-left: 4px; border-radius: 2px; }
+  .badge.lex { background: #3b82f6; color: #fff; }
+  .badge.hyb { background: #a855f7; color: #fff; }
+  #status { padding: 4px 10px; font-size: 10px; color: #666; border-bottom: 1px solid #222; min-height: 22px; flex-shrink: 0; }
+
+  #results { flex: 1; overflow-y: auto; }
+  .card { border-bottom: 1px solid #222; padding: 10px; }
+  .card:hover { background: #1a1a1a; }
+  .card.selected { background: #1a2033; border-left: 2px solid #3b82f6; }
+  .card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; cursor: pointer; }
+  .card-rank { font-size: 10px; font-weight: bold; color: #3b82f6; background: #1d3a5e; padding: 2px 6px; border-radius: 3px; flex-shrink: 0; min-width: 28px; text-align: center; }
+  .card-name { font-weight: bold; font-size: 11px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip { font-size: 9px; padding: 2px 6px; border-radius: 2px; font-weight: bold; }
+  .chip-lex { background: #3b82f6; color: #fff; }
+  .chip-hyb { background: #a855f7; color: #fff; }
+
+  /* Score row */
+  .card-scores { font-size: 10px; color: #666; display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 5px; align-items: center; }
+  .card-scores span { color: #aaa; }
+  .score-bar-wrap { width: 60px; height: 3px; background: #1a1a1a; border-radius: 2px; display: inline-block; vertical-align: middle; }
+  .score-bar { height: 3px; background: #a855f7; border-radius: 2px; }
+  .score-bar.lex { background: #3b82f6; }
+
+  /* Missing terms */
+  .missing-row { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; padding: 4px 0 2px; }
+  .missing-label { font-size: 9px; color: #444; }
+  .missing-term { font-size: 9px; color: #555; background: #1a1a1a; padding: 1px 6px; border-radius: 2px; border: 1px solid #2a2a2a; }
+
+  /* Highlights strip */
+  .highlights-strip { font-size: 10px; color: #555; line-height: 1.6; padding: 4px 0; border-top: 1px solid #1a1a1a; }
+  .highlights-strip mark { background: #1a3a1a; color: #4ade80; padding: 0 2px; border-radius: 2px; }
+
+  .empty { padding: 30px; text-align: center; color: #444; }
+  .ck-toggle { font-size: 10px; color: #555; padding: 4px 10px; cursor: pointer; border-top: 1px solid #222; }
+  .ck-toggle:hover { color: #aaa; }
+  .ck-list { background: #111; border-top: 1px solid #222; }
+  .ck-row { display: grid; grid-template-columns: 55px 90px 70px 1fr; gap: 6px; padding: 6px 10px; border-bottom: 1px solid #1a1a1a; align-items: start; }
+  .ck-i { font-size: 10px; color: #3b82f6; }
+  .ck-s { font-size: 10px; color: #888; }
+  .ck-page { font-size: 9px; color: #444; background: #1a1a1a; padding: 1px 5px; border-radius: 2px; }
+  .ck-t { font-size: 10px; color: #555; line-height: 1.5; }
+  .ck-t mark { background: #1a3a1a; color: #4ade80; padding: 0 2px; border-radius: 2px; }
+
+  #sel-bar { padding: 8px 10px; background: #1a1a1a; border-top: 1px solid #333; font-size: 10px; color: #666; flex-shrink: 0; cursor: pointer; transition: background .15s; }
+  #sel-bar:hover { background: #222; }
+  #sel-bar b { color: #3b82f6; }
+  #sel-bar .hint { color: #333; font-size: 9px; margin-top: 2px; }
+
+  #right { flex: 1; display: flex; flex-direction: column; }
+  #right-header { padding: 8px 14px; background: #161616; border-bottom: 1px solid #333; font-size: 10px; color: #555; display: flex; align-items: center; gap: 8px; flex-shrink: 0; min-height: 34px; }
+  #right-header b { color: #3b82f6; }
+  #chat-msgs { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .msg { max-width: 82%; padding: 10px 14px; border-radius: 8px; line-height: 1.6; font-size: 12px; }
+  .msg.user { align-self: flex-end; background: #1d2d3e; color: #ddd; }
+  .msg.ai   { align-self: flex-start; background: #1a1a1a; border: 1px solid #2a2a2a; color: #ddd; }
+  .msg.ai.streaming { border-color: #a855f7; }
+  .msg .who { font-size: 10px; color: #555; margin-bottom: 4px; }
+  .cursor::after { content: '▌'; animation: blink .7s step-end infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* Source chips on chat */
+  .src-bar { font-size: 10px; color: #555; padding: 4px 0 8px; display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+  .src-chip { font-size: 10px; background: #1a2a1a; color: #4ade80; border: 1px solid #2a5a2a; padding: 2px 8px; border-radius: 10px; }
+  .src-score { color: #2a5a2a; font-size: 9px; }
+
+  #chat-empty { flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px; color: #333; }
+  #chat-empty .big { font-size: 28px; }
+  #chat-bottom { padding: 12px; border-top: 1px solid #333; background: #1a1a1a; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+  #no-sel { font-size: 10px; color: #555; text-align: center; }
+  #input-row { display: flex; gap: 8px; }
+  #msg-input { flex: 1; background: #111; border: 1px solid #333; color: #ddd; padding: 10px 12px; font-family: monospace; font-size: 12px; resize: none; height: 44px; border-radius: 6px; }
+  #msg-input:focus { outline: none; border-color: #555; }
+
+  #uoverlay { position: fixed; inset: 0; background: rgba(0,0,0,.75); display: none; align-items: center; justify-content: center; z-index: 50; }
+  #uoverlay.open { display: flex; }
+  #uframe { width: 420px; height: 320px; border: 1px solid #333; background: #1a1a1a; }
+
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-thumb { background: #2a2a2a; }
+</style>
 </head>
 <body>
 
-<h1>🔍 DOCUMENT SEARCH SYSTEM - FEATURE RICH DATA VIEW</h1>
+<div id="left">
+  <div id="search-bar">
+    <input id="q" placeholder="Search query…" onkeydown="if(event.key==='Enter')doSearch()">
+    <button onclick="doSearch()" id="search-btn">SEARCH</button>
+  </div>
 
-<!-- Stats -->
-<div class="section">
-    <h2>SYSTEM STATUS</h2>
-    <div id="stats">
-        <div class="stat-item">
-            <span class="stat-value" id="stat-status">●</span>
-            <span class="stat-label">Status</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-value" id="stat-docs">-</span>
-            <span class="stat-label">Documents</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-value" id="stat-size">-</span>
-            <span class="stat-label">Total Size</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-value" id="stat-time">-</span>
-            <span class="stat-label">Last Updated</span>
-        </div>
+  <div id="upload-trigger">
+    <button id="upload-open-btn" onclick="openUpload()">⬆ UPLOAD DOCUMENT</button>
+  </div>
+
+  <div id="global-chat-btn-wrap">
+    <button id="global-chat-btn" onclick="window.open('/static/chat.html','_blank')">
+      💬 OPEN GLOBAL CHAT (all docs)
+    </button>
+  </div>
+
+  <!-- Query expansion bar — shown after search if backend expanded the query -->
+  <div id="expansion-bar">
+    <span class="exp-label">Also searched:</span>
+    <span id="exp-terms"></span>
+  </div>
+
+  <div id="filter-toggle" onclick="toggleFilters()">
+    <span id="f-arrow">▶</span> FILTERS
+    <span id="f-dot">● ACTIVE</span>
+  </div>
+
+  <div id="filter-panel">
+    <div class="fr">
+      <span class="fl">SOURCE</span>
+      <div class="fc">
+        <button class="fk" data-g="source_type" data-v="uploaded"      onclick="chipToggle(this)">uploaded</button>
+        <button class="fk" data-g="source_type" data-v="webhook"       onclick="chipToggle(this)">webhook</button>
+        <button class="fk" data-g="source_type" data-v="scoped_ingest" onclick="chipToggle(this)">scoped_ingest</button>
+      </div>
     </div>
+    <div class="fr">
+      <span class="fl">FILE TYPE</span>
+      <div class="fc">
+        <button class="fk" data-g="file_type" data-v="pdf"  onclick="chipToggle(this)">pdf</button>
+        <button class="fk" data-g="file_type" data-v="docx" onclick="chipToggle(this)">docx</button>
+        <button class="fk" data-g="file_type" data-v="txt"  onclick="chipToggle(this)">txt</button>
+        <button class="fk" data-g="file_type" data-v="xlsx" onclick="chipToggle(this)">xlsx</button>
+      </div>
+    </div>
+    <div class="fr">
+      <span class="fl">DURATION</span>
+      <div class="fc">
+        <button class="fk" data-g="duration" data-v="last_24h" onclick="durToggle(this)">24h</button>
+        <button class="fk" data-g="duration" data-v="last_7d"  onclick="durToggle(this)">7d</button>
+        <button class="fk" data-g="duration" data-v="last_30d" onclick="durToggle(this)">30d</button>
+        <button class="fk" data-g="duration" data-v="last_90d" onclick="durToggle(this)">90d</button>
+      </div>
+    </div>
+    <div class="fr">
+      <span class="fl">RANGE</span>
+      <div class="fd">
+        <input type="datetime-local" id="date-from" onchange="dateChange()">
+        <span>→</span>
+        <input type="datetime-local" id="date-to" onchange="dateChange()">
+      </div>
+    </div>
+    <div id="fa">
+      <button class="f-clr" onclick="clearFilters()">CLEAR</button>
+      <button onclick="doSearch()" style="font-size:10px;padding:4px 12px">APPLY + SEARCH</button>
+    </div>
+  </div>
+
+  <div id="tabs">
+    <div class="tab active" id="tab-lex" onclick="switchTab('lexical')">LEXICAL <span class="badge" id="bl">0</span></div>
+    <div class="tab"        id="tab-hyb" onclick="switchTab('hybrid')"> HYBRID  <span class="badge" id="bh">0</span></div>
+  </div>
+  <div id="status">Run a search…</div>
+  <div id="results"><div class="empty">Results appear here</div></div>
+
+  <div id="sel-bar" onclick="focusChat()">
+    <div>No files selected</div>
+  </div>
 </div>
 
-<!-- Upload -->
-<div class="section">
-    <h2>UPLOAD DOCUMENT</h2>
-    <form id="uploadForm">
-        <input type="file" id="fileInput" accept=".pdf,.docx,.txt" required>
-        <button type="submit">UPLOAD & INDEX</button>
-    </form>
-    <div id="uploadStatus"></div>
+<div id="uoverlay" onclick="if(event.target.id==='uoverlay')closeUpload()">
+  <iframe id="uframe" src="/static/upload.html" frameborder="0"></iframe>
 </div>
 
-<!-- Search -->
-<div class="section">
-    <h2>SEARCH</h2>
-    
-    <form id="searchForm">
-        <input type="text" id="searchQuery" placeholder="Enter search query..." required>
-        <button type="submit">SEARCH</button>
-    </form>
-    
-    <div class="search-mode">
-        <label><input type="radio" name="searchType" value="lexical"><span>LEXICAL (Full-Text + Match Stats)</span></label>
-        <label><input type="radio" name="searchType" value="semantic"><span>SEMANTIC (Vector + Similarity)</span></label>
-        <label><input type="radio" name="searchType" value="hybrid" checked><span>HYBRID (Combined Scoring)</span></label>
-        <label><input type="radio" name="searchType" value="comparison"><span>COMPARISON (All Three)</span></label>
+<div id="right">
+  <div id="right-header">
+    <span id="right-header-text">← Select files from search to begin</span>
+  </div>
+  <div id="chat-msgs">
+    <div id="chat-empty">
+      <div class="big">💬</div>
+      <div>Select files from search results, then ask questions</div>
     </div>
-    
-    <div class="search-controls">
-        <label>Results Limit:</label>
-        <input type="number" id="searchLimit" value="10" min="1" max="50">
+  </div>
+  <div id="chat-bottom">
+    <div id="no-sel">← Search and select files first</div>
+    <div id="input-row">
+      <textarea id="msg-input"
+        placeholder="Ask a question about selected files…"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"
+        disabled></textarea>
+      <button id="send-btn" onclick="send()" disabled>SEND</button>
     </div>
-</div>
-
-<!-- Results -->
-<div class="section">
-    <h2>RESULTS</h2>
-    <div id="resultsContainer">
-        <p style="padding: 20px; text-align: center; color: #999;">No search performed yet. Enter a query above.</p>
-    </div>
+  </div>
 </div>
 
 <script>
-// API Base URL
-const API_BASE = '';
+const DEV_USER = 'dev-user-001';
+const S = {
+  lex:[], hyb:[], tab:'lexical', selected:new Set(), fileMap:{},
+  filters:{ source_type:null, file_type:null, duration:null, date_from:null, date_to:null },
+  sessionId: null,
+  streaming: false,
+};
 
-// Load stats on page load
-loadStats();
-setInterval(loadStats, 10000); // Refresh every 10s
-
-// Stats
-async function loadStats() {
-    try {
-        const response = await fetch(`${API_BASE}/stats`);
-        const data = await response.json();
-        
-        document.getElementById('stat-status').textContent = '●';
-        document.getElementById('stat-status').style.color = '#4caf50';
-        document.getElementById('stat-docs').textContent = data.documents.total_documents || 0;
-        document.getElementById('stat-size').textContent = formatBytes(data.documents.total_size_bytes || 0);
-        document.getElementById('stat-time').textContent = new Date().toLocaleTimeString();
-    } catch (error) {
-        document.getElementById('stat-status').textContent = '●';
-        document.getElementById('stat-status').style.color = '#f44336';
-        document.getElementById('stat-time').textContent = 'OFFLINE';
-    }
-}
-
-// Upload
-document.getElementById('uploadForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const fileInput = document.getElementById('fileInput');
-    const file = fileInput.files[0];
-    const statusDiv = document.getElementById('uploadStatus');
-    
-    if (!file) return;
-    
-    statusDiv.innerHTML = '<p class="loading">⏳ Uploading and indexing... Please wait.</p>';
-    
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    try {
-        const response = await fetch(`${API_BASE}/upload`, {
-            method: 'POST',
-            body: formData
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            statusDiv.innerHTML = `
-                <div class="success">
-                    ✓ SUCCESS<br><br>
-                    <strong>File ID:</strong> ${data.file_id}<br>
-                    <strong>Filename:</strong> ${data.filename}<br>
-                    <strong>Size:</strong> ${formatBytes(data.size)}<br>
-                    <strong>Status:</strong> ${data.status}
-                </div>
-            `;
-            fileInput.value = '';
-            loadStats();
-        } else {
-            throw new Error(data.detail || 'Upload failed');
-        }
-    } catch (error) {
-        statusDiv.innerHTML = `<div class="error">✗ ERROR: ${error.message}</div>`;
-    }
-});
-
-// Search
-document.getElementById('searchForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const query = document.getElementById('searchQuery').value.trim();
-    const type = document.querySelector('input[name="searchType"]:checked').value;
-    const limit = document.getElementById('searchLimit').value;
-    
-    if (!query) return;
-    
-    const resultsDiv = document.getElementById('resultsContainer');
-    resultsDiv.innerHTML = '<p class="loading" style="padding: 30px; text-align: center;">⏳ Searching... Please wait.</p>';
-    
-    try {
-        if (type === 'comparison') {
-            await searchComparison(query, limit);
-        } else {
-            await searchNormal(query, type, limit);
-        }
-    } catch (error) {
-        resultsDiv.innerHTML = `<div class="error">✗ SEARCH ERROR: ${error.message}</div>`;
-    }
-});
-
-// Normal Search
-async function searchNormal(query, type, limit) {
-    const response = await fetch(`${API_BASE}/search?query=${encodeURIComponent(query)}&type=${type}&limit=${limit}`);
-    const data = await response.json();
-    
-    const resultsDiv = document.getElementById('resultsContainer');
-    
-    if (!response.ok) {
-        throw new Error(data.detail || 'Search failed');
-    }
-    
-    if (data.results.length === 0) {
-        resultsDiv.innerHTML = `<p style="padding: 20px; text-align: center;">No results found for query: <strong>${escapeHtml(query)}</strong></p>`;
-        return;
-    }
-    
-    let html = `
-        <div style="padding: 10px; background: #e3f2fd; border: 2px solid #2196f3; margin-bottom: 15px;">
-            <strong>Query:</strong> ${escapeHtml(query)} | 
-            <strong>Type:</strong> ${type.toUpperCase()} | 
-            <strong>Results:</strong> ${data.count}
-        </div>
-    `;
-    
-    data.results.forEach((result, idx) => {
-        html += renderResult(result, idx + 1, type);
+// ── Session ────────────────────────────────────────────────────
+async function ensureSession() {
+  if (S.sessionId) return;
+  try {
+    const res   = await fetch('/qa/sessions/new', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','X-User-Id':DEV_USER},
+      body: JSON.stringify({}),
     });
-    
-    resultsDiv.innerHTML = html;
+    const d     = await res.json();
+    S.sessionId = d.session_id;
+  } catch(e) { console.warn('Session init failed:', e); }
 }
 
-// Render single result
-function renderResult(result, rank, searchType) {
-    let html = `<div class="result">`;
-    
-    html += `<div class="result-header">[${rank}] ${escapeHtml(result.filename)}</div>`;
-    
-    // ADD RERANK SCORE DISPLAY
-    if (result.rerank_score !== undefined) {
-        const scorePercent = (result.rerank_score * 100).toFixed(1);
-        const scoreColor = result.rerank_score > 0.7 ? '#388e3c' : result.rerank_score > 0.4 ? '#f57c00' : '#d32f2f';
-        html += `<div style="padding: 8px; margin-bottom: 10px; background: #f0f0f0; border-left: 4px solid ${scoreColor};">
-            <strong>Relevance Score:</strong> <span style="font-size: 16px; font-weight: bold; color: ${scoreColor};">${scorePercent}%</span>
-            <span style="font-size: 11px; color: #666; margin-left: 10px;">(AI Reranked)</span>
+// ── Upload ─────────────────────────────────────────────────────
+function openUpload()  { document.getElementById('uoverlay').classList.add('open'); }
+function closeUpload() { document.getElementById('uoverlay').classList.remove('open'); }
+function uploadDone()  { closeUpload(); }
+
+function focusChat() {
+  if (S.selected.size === 0) return;
+  document.getElementById('msg-input').focus();
+}
+
+// ── Filters ────────────────────────────────────────────────────
+function toggleFilters() {
+  const open = document.getElementById('filter-panel').classList.toggle('open');
+  document.getElementById('f-arrow').textContent = open ? '▼' : '▶';
+}
+
+function chipToggle(btn) {
+  const g = btn.dataset.g, v = btn.dataset.v;
+  const was = btn.classList.contains('on');
+  document.querySelectorAll(`.fk[data-g="${g}"]`).forEach(b => b.classList.remove('on'));
+  S.filters[g] = was ? null : v;
+  if (!was) btn.classList.add('on');
+  syncDot();
+}
+
+function durToggle(btn) {
+  const was = btn.classList.contains('on');
+  document.querySelectorAll('.fk[data-g="duration"]').forEach(b => b.classList.remove('on'));
+  if (!was) {
+    btn.classList.add('on');
+    S.filters.duration  = btn.dataset.v;
+    S.filters.date_from = S.filters.date_to = null;
+    document.getElementById('date-from').value = '';
+    document.getElementById('date-to').value   = '';
+  } else { S.filters.duration = null; }
+  syncDot();
+}
+
+function dateChange() {
+  const f = document.getElementById('date-from').value;
+  const t = document.getElementById('date-to').value;
+  if (f || t) {
+    document.querySelectorAll('.fk[data-g="duration"]').forEach(b => b.classList.remove('on'));
+    S.filters.duration  = null;
+    S.filters.date_from = f ? f + ':00' : null;
+    S.filters.date_to   = t ? t + ':00' : null;
+  } else { S.filters.date_from = S.filters.date_to = null; }
+  syncDot();
+}
+
+function clearFilters() {
+  S.filters = { source_type:null, file_type:null, duration:null, date_from:null, date_to:null };
+  document.querySelectorAll('.fk').forEach(b => b.classList.remove('on'));
+  document.getElementById('date-from').value = '';
+  document.getElementById('date-to').value   = '';
+  syncDot();
+}
+
+function syncDot() {
+  const f = S.filters;
+  document.getElementById('f-dot').style.display =
+    (f.source_type||f.file_type||f.duration||f.date_from||f.date_to) ? 'inline' : 'none';
+}
+
+function buildParams(q) {
+  const p = new URLSearchParams({ query:q, limit:'10', stream:'true' });
+  const f = S.filters;
+  if (f.source_type) p.set('source_type', f.source_type);
+  if (f.file_type)   p.set('file_type',   f.file_type);
+  if (f.duration)    p.set('duration',    f.duration);
+  if (f.date_from)   p.set('date_from',   f.date_from);
+  if (f.date_to)     p.set('date_to',     f.date_to);
+  return p;
+}
+
+// ── Search ─────────────────────────────────────────────────────
+function doSearch() {
+  const q = document.getElementById('q').value.trim();
+  if (!q) return;
+  S.lex=[]; S.hyb=[]; S.selected.clear(); S.fileMap={};
+  updateSelBar(); renderResults(); setStatus('searching…');
+  document.getElementById('search-btn').textContent = '…';
+  document.getElementById('expansion-bar').classList.remove('show');
+  ['bl','bh'].forEach(id => { const el=document.getElementById(id); el.textContent='0'; el.className='badge'; });
+
+  const t0 = Date.now();
+  const es  = new EventSource(`/search?${buildParams(q)}`);
+
+  es.onmessage = e => {
+    const msg = JSON.parse(e.data);
+
+    // ── NEW: meta event — show query expansion bar
+    if (msg.type === 'meta') {
+      const terms = msg.query_info?.expanded_terms || [];
+      if (terms.length) {
+        document.getElementById('exp-terms').innerHTML =
+          terms.map(t => `<span class="exp-term">${esc(t)}</span>`).join('');
+        document.getElementById('expansion-bar').classList.add('show');
+      }
+    }
+
+    if (msg.type === 'lexical') {
+      S.lex = msg.results || [];
+      const b = document.getElementById('bl');
+      b.textContent = S.lex.length; b.className = 'badge lex';
+      S.lex.forEach(r => { if (r.file_id) S.fileMap[r.file_id] = r.filename; });
+      if (S.tab === 'lexical') renderResults();
+      setStatus(`Lexical (${Date.now()-t0}ms) — waiting hybrid…`);
+    }
+    if (msg.type === 'hybrid') {
+      S.hyb = msg.results || [];
+      const b = document.getElementById('bh');
+      b.textContent = S.hyb.length; b.className = 'badge hyb';
+      S.hyb.forEach(r => { if (r.file_id) S.fileMap[r.file_id] = r.filename; });
+      if (S.tab === 'hybrid') renderResults();
+    }
+    if (msg.type === 'done') {
+      es.close();
+      document.getElementById('search-btn').textContent = 'SEARCH';
+      const f = S.filters;
+      const fl = [f.source_type, f.file_type, f.duration].filter(Boolean).join(' · ');
+      setStatus(`Done ${Date.now()-t0}ms${fl ? ' · ' + fl : ''}`);
+    }
+  };
+  es.onerror = () => {
+    es.close();
+    document.getElementById('search-btn').textContent = 'SEARCH';
+    setStatus('Error');
+  };
+}
+
+function switchTab(t) {
+  S.tab = t;
+  document.getElementById('tab-lex').className = 'tab' + (t==='lexical'?' active':'');
+  document.getElementById('tab-hyb').className = 'tab' + (t==='hybrid' ?' active':'');
+  renderResults();
+}
+
+// ── Render results — uses new engine.py fields ─────────────────
+function renderResults() {
+  const res  = S.tab === 'lexical' ? S.lex : S.hyb;
+  const pane = document.getElementById('results');
+  if (!res.length) { pane.innerHTML = '<div class="empty">No results</div>'; return; }
+
+  // Results now come pre-aggregated by file from backend (_aggregate_by_file)
+  // Each item is a file group with best_chunk, chunks[], file_rank, top_score, missing_terms
+  // Fall back to old chunk-level grouping if backend sends raw chunks
+  const isAggregated = res[0] && res[0].file_rank !== undefined;
+
+  const groups = isAggregated ? res : (() => {
+    const g = {};
+    res.forEach(r => {
+      if (!g[r.file_id]) g[r.file_id] = { best: r, chunks: [], topScore: 0, file_rank: 0, missing_terms: [] };
+      g[r.file_id].chunks.push(r);
+      const score = r.hybrid_info?.lancedb_fused_score ?? r.match_score?.fts_score ?? 0;
+      if (score > g[r.file_id].topScore) { g[r.file_id].topScore = score; g[r.file_id].best = r; }
+    });
+    return Object.values(g).sort((a,b) => b.topScore - a.topScore).map((g,i) => ({...g, file_rank: i+1}));
+  })();
+
+  pane.innerHTML = groups.map(g => {
+    const r       = g.best_chunk || g.best || g;
+    const chunks  = g.chunks || [];
+    const n       = g.chunk_count || chunks.length;
+    const isLex   = (r.search_type || '') === 'lexical';
+    const sel     = S.selected.has(r.file_id);
+    const rank    = g.file_rank;
+    const top     = g.top_score ?? g.topScore ?? 0;
+    const missing = g.missing_terms || r.match_score?.missing_terms || [];
+    const covPct  = r.match_score?.query_coverage_pct ?? 0;
+
+    // Score bar — scale RRF 0–1 or BM25 0–30 to 0–100%
+    const barPct  = isLex
+      ? Math.min(100, Math.round(top / 20 * 100))
+      : Math.min(100, Math.round(top * 3000));
+
+    // Best highlight snippet from best chunk
+    const snippet = r.highlights?.[0]?.highlighted || '';
+
+    // Score row
+    const scores = isLex
+      ? `<span>bm25 <b>${top.toFixed(2)}</b></span>
+         <div class="score-bar-wrap"><div class="score-bar lex" style="width:${barPct}%"></div></div>
+         <span>cov <b>${covPct}%</b></span>
+         <span>${n} chunk${n!==1?'s':''}</span>`
+      : `<span>fused <b>${top.toFixed(4)}</b></span>
+         <div class="score-bar-wrap"><div class="score-bar" style="width:${barPct}%"></div></div>
+         <span>${n} chunk${n!==1?'s':''}</span>`;
+
+    // Missing terms row
+    const missingHtml = missing.length
+      ? `<div class="missing-row">
+           <span class="missing-label">not found:</span>
+           ${missing.map(t => `<span class="missing-term">${esc(t)}</span>`).join('')}
+         </div>` : '';
+
+    // Best highlight snippet strip
+    const snippetHtml = snippet
+      ? `<div class="highlights-strip">${snippet}</div>` : '';
+
+    // Chunk rows — now show page number + highlighted text
+    const cks = chunks
+      .sort((a,b) => {
+        const sa = a.hybrid_info?.lancedb_fused_score ?? a.match_score?.fts_score ?? 0;
+        const sb = b.hybrid_info?.lancedb_fused_score ?? b.match_score?.fts_score ?? 0;
+        return sb - sa;
+      })
+      .map(c => {
+        const cs    = isLex
+          ? `bm25 ${(c.match_score?.fts_score ?? 0).toFixed(2)}`
+          : `fused ${(c.hybrid_info?.lancedb_fused_score ?? 0).toFixed(4)}`;
+        const page  = c.page_number ? c.page_number : null;
+        // Use highlighted snippet if available, else plain text
+        const txt   = c.highlights?.[0]?.highlighted
+          || esc((c.text||'').slice(0, 120)) + '…';
+        return `<div class="ck-row">
+          <span class="ck-i">chunk ${c.chunk_index ?? '–'}</span>
+          <span class="ck-s">${cs}</span>
+          <span class="ck-page">${page ? 'p.'+page : '–'}</span>
+          <span class="ck-t">${txt}</span>
         </div>`;
-    }
-    // Meta
-    html += `<div class="result-meta">`;
-    html += `<div class="result-meta-grid">`;
-    html += `<div class="meta-item"><span class="meta-label">File ID:</span> ${result.file_id}</div>`;
-    html += `<div class="meta-item"><span class="meta-label">Size:</span> ${formatBytes(result.file_size)}</div>`;
-    html += `<div class="meta-item"><span class="meta-label">Type:</span> ${result.content_type || 'unknown'}</div>`;
-    html += `<div class="meta-item"><span class="meta-label">Indexed:</span> ${new Date(result.indexed_at).toLocaleString()}</div>`;
-    html += `<div class="meta-item"><span class="meta-label">Text Length:</span> ${result.text.length} chars</div>`;
-    html += `</div>`;
-    html += `</div>`;
-    
-    // Lexical match details
-    if (result.match_score) {
-        html += `<div class="match-details">`;
-        html += `<h3>LEXICAL MATCH DETAILS</h3>`;
-        html += `<div class="score-grid">`;
-        html += `<div class="score-item"><span class="score-value">${result.match_score.total_matches}</span><span class="score-label">Total Matches</span></div>`;
-        html += `<div class="score-item"><span class="score-value">${result.match_score.unique_terms_matched}</span><span class="score-label">Unique Terms</span></div>`;
-        html += `<div class="score-item"><span class="score-value">${result.match_score.match_density}</span><span class="score-label">Density (per 1K)</span></div>`;
-        html += `<div class="score-item"><span class="score-value">${result.match_score.query_coverage}%</span><span class="score-label">Query Coverage</span></div>`;
-        html += `</div>`;
-        
-        // Term frequencies
-        if (result.match_score.term_frequencies && Object.keys(result.match_score.term_frequencies).length > 0) {
-            html += `<div class="term-freq">`;
-            html += `<strong>Term Frequencies:</strong> `;
-            for (const [term, count] of Object.entries(result.match_score.term_frequencies)) {
-                html += `<span class="term-freq-item"><span class="term">${escapeHtml(term)}</span><span class="count">×${count}</span></span>`;
-            }
-            html += `</div>`;
-        }
-        html += `</div>`;
-    }
-    
-    // Semantic details
-    if (result.semantic_info) {
-        html += `<div class="semantic-details">`;
-        html += `<h3>SEMANTIC SIMILARITY DETAILS</h3>`;
-        html += `<div class="score-grid">`;
-        html += `<div class="score-item"><span class="score-value">${result.semantic_info.similarity_score}%</span><span class="score-label">Similarity Score</span></div>`;
-        html += `<div class="score-item"><span class="score-value">${result.semantic_info.distance}</span><span class="score-label">Vector Distance</span></div>`;
-        html += `<div class="score-item"><span class="score-value">${result.semantic_info.embedding_dim}</span><span class="score-label">Embedding Dim</span></div>`;
-        if (result.query_embedding_norm) {
-            html += `<div class="score-item"><span class="score-value">${result.query_embedding_norm}</span><span class="score-label">Query Vec Norm</span></div>`;
-        }
-        html += `</div>`;
-        html += `</div>`;
-    }
-    
-    // Hybrid details
-    if (result.hybrid_info) {
-        html += `<div class="hybrid-details">`;
-        html += `<h3>⚡ HYBRID SCORING DETAILS</h3>`;
-        html += `<div class="score-grid">`;
-        html += `<div class="score-item"><span class="score-value">${result.hybrid_info.combined_score}</span><span class="score-label">Combined Score</span></div>`;
-        html += `<div class="score-item"><span class="score-value">${result.hybrid_info.lexical_contribution}</span><span class="score-label">Lexical Part</span></div>`;
-        html += `<div class="score-item"><span class="score-value">${result.hybrid_info.semantic_contribution}</span><span class="score-label">Semantic Part</span></div>`;
-        html += `<div class="score-item"><span class="score-value">#${result.hybrid_info.lexical_rank}</span><span class="score-label">Lexical Rank</span></div>`;
-        html += `<div class="score-item"><span class="score-value">#${result.hybrid_info.semantic_rank}</span><span class="score-label">Semantic Rank</span></div>`;
-        html += `</div>`;
-        html += `</div>`;
-    }
-    
-    // Text preview
-    html += `<div class="result-text">${truncateText(result.text, 800)}</div>`;
-    
-    // Highlights
-    if (result.highlights && result.highlights.length > 0) {
-        html += `<div class="result-highlights">`;
-        html += `<h3>HIGHLIGHTED MATCHES (${result.highlights.length})</h3>`;
-        result.highlights.forEach((h, idx) => {
-            html += `<div class="highlight-item">`;
-            html += `<strong>[${idx + 1}]</strong> ${h.highlighted}`;
-            html += `<div class="highlight-meta">Position: ${h.position} | Term: "${escapeHtml(h.matched_term)}" | Context: ${h.context_chars} chars</div>`;
-            html += `</div>`;
-        });
-        html += `</div>`;
-    }
-    
-    html += `</div>`;
-    return html;
+      }).join('');
+
+    return `
+    <div class="card${sel ? ' selected' : ''}" id="card-${r.file_id}">
+      <div class="card-top" onclick="toggleSel('${r.file_id}')">
+        <input type="checkbox" ${sel ? 'checked' : ''}
+          style="accent-color:#3b82f6;cursor:pointer;flex-shrink:0"
+          onclick="event.stopPropagation();toggleSel('${r.file_id}')">
+        <span class="card-rank">#${rank}</span>
+        <span class="card-name" title="${esc(r.filename)}">${esc(r.filename)}</span>
+        <span class="chip ${isLex ? 'chip-lex' : 'chip-hyb'}">${r.search_type}</span>
+      </div>
+      <div class="card-scores">${scores}</div>
+      ${missingHtml}
+      ${snippetHtml}
+      <div class="ck-toggle" onclick="toggleCks('ck-${r.file_id}', this)">
+        ▶ ${n} chunk${n > 1 ? 's' : ''} matched
+      </div>
+      <div class="ck-list" id="ck-${r.file_id}" style="display:none">${cks}</div>
+    </div>`;
+  }).join('');
 }
 
-// Comparison Search
-async function searchComparison(query, limit) {
-    const response = await fetch(`${API_BASE}/search/compare?query=${encodeURIComponent(query)}&limit=${limit}`);
-    const data = await response.json();
-    
-    const resultsDiv = document.getElementById('resultsContainer');
-    
-    if (!response.ok) {
-        throw new Error(data.detail || 'Search failed');
-    }
-    
-    let html = `
-        <div class="query-stats">
-            <h3>🔍 QUERY ANALYSIS</h3>
-            <strong>Query:</strong> ${escapeHtml(query)}<br>
-            <strong>Term Count:</strong> ${data.query_stats.term_count} | 
-            <strong>Character Count:</strong> ${data.query_stats.char_count}
-            <div class="query-terms">
-                ${data.query_stats.terms.map(t => `<span class="query-term">${escapeHtml(t)}</span>`).join('')}
-            </div>
-        </div>
-    `;
-    
-    html += '<div class="comparison-container">';
-    
-    // Lexical Column
-    html += '<div class="comparison-column">';
-    html += '<h3>LEXICAL SEARCH</h3>';
-    html += `<p style="text-align: center; margin-bottom: 10px;"><strong>${data.lexical.length} Results</strong></p>`;
-    data.lexical.forEach((result, idx) => {
-        html += `<div class="comparison-result">`;
-        html += `<strong>[${idx + 1}] ${escapeHtml(result.filename)}</strong><br>`;
-        html += `<small>ID: ${result.file_id}</small><br>`;
-        if (result.match_score) {
-            html += `<small><strong>Matches:</strong> ${result.match_score.total_matches} | <strong>Density:</strong> ${result.match_score.match_density} | <strong>Coverage:</strong> ${result.match_score.query_coverage}%</small><br>`;
-        }
-        html += `<div style="margin-top: 5px; padding: 5px; background: #f9f9f9; font-size: 10px; max-height: 100px; overflow-y: auto;">${truncateText(result.text, 200)}</div>`;
-        html += `</div>`;
+function toggleCks(id, btn) {
+  const el=document.getElementById(id), open=el.style.display==='none';
+  el.style.display = open ? 'block' : 'none';
+  btn.textContent  = (open ? '▼ ' : '▶ ') + btn.textContent.slice(2);
+}
+
+function toggleSel(fid) {
+  S.selected.has(fid) ? S.selected.delete(fid) : S.selected.add(fid);
+  const card = document.getElementById('card-'+fid);
+  card.classList.toggle('selected', S.selected.has(fid));
+  card.querySelector('input[type=checkbox]').checked = S.selected.has(fid);
+  updateSelBar();
+}
+
+function updateSelBar() {
+  const n   = S.selected.size;
+  const bar = document.getElementById('sel-bar');
+  const hdr = document.getElementById('right-header-text');
+  if (n > 0) {
+    const names = [...S.selected].map(id => S.fileMap[id] || id).join(', ');
+    bar.innerHTML = `<div><b>${n} selected:</b> ${esc(names)}</div><div class="hint">↑ click to focus chat →</div>`;
+    hdr.innerHTML = `Chatting with <b>${n}</b> file${n>1?'s':''}: ${esc(names)}`;
+  } else {
+    bar.innerHTML = '<div>No files selected</div>';
+    hdr.innerHTML = '← Select files from search to begin';
+  }
+  const on = n > 0;
+  document.getElementById('msg-input').disabled = !on;
+  document.getElementById('send-btn').disabled  = !on;
+  document.getElementById('no-sel').style.display     = on ? 'none' : 'block';
+  document.getElementById('chat-empty').style.display = on ? 'none' : 'flex';
+  if (on) document.getElementById('msg-input').focus();
+}
+
+// ── Chat ───────────────────────────────────────────────────────
+const history = [];
+
+async function send() {
+  const inp = document.getElementById('msg-input');
+  const q   = inp.value.trim();
+  if (!q || !S.selected.size || S.streaming) return;
+
+  await ensureSession();
+  if (!S.sessionId) { alert('Failed to create session — check server'); return; }
+
+  S.streaming  = true;
+  inp.value    = ''; inp.disabled = true;
+  document.getElementById('send-btn').disabled = true;
+
+  addMsg('user', q);
+  history.push({role:'user', content:q});
+  const aiEl = addMsg('ai', '', true);
+
+  try {
+    const resp = await fetch(`/qa/sessions/${S.sessionId}/chat`, {
+      method:  'POST',
+      headers: {'Content-Type':'application/json','X-User-Id':DEV_USER},
+      body:    JSON.stringify({ question: q, file_ids: [...S.selected], top_k: 5 }),
     });
-    html += '</div>';
-    
-    // Semantic Column
-    html += '<div class="comparison-column">';
-    html += '<h3>SEMANTIC SEARCH</h3>';
-    html += `<p style="text-align: center; margin-bottom: 10px;"><strong>${data.semantic.length} Results</strong></p>`;
-    data.semantic.forEach((result, idx) => {
-        html += `<div class="comparison-result">`;
-        html += `<strong>[${idx + 1}] ${escapeHtml(result.filename)}</strong><br>`;
-        html += `<small>ID: ${result.file_id}</small><br>`;
-        if (result.semantic_info) {
-            html += `<small><strong>Similarity:</strong> ${result.semantic_info.similarity_score}% | <strong>Distance:</strong> ${result.semantic_info.distance}</small><br>`;
+
+    if (!resp.ok) {
+      const e = await resp.json().catch(()=>({detail:'Request failed'}));
+      throw new Error(e.detail || `HTTP ${resp.status}`);
+    }
+
+    const reader = resp.body.getReader();
+    const dec    = new TextDecoder();
+    let   buf    = '', answer = '', srcHtml = '';
+
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, {stream:true});
+      const lines = buf.split('\n'); buf = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        let m; try { m = JSON.parse(line.slice(5)); } catch { continue; }
+
+        if (m.type === 'sources') {
+          // Show source chips with score bars
+          srcHtml = `<div class="src-bar">` +
+            m.sources.slice(0,4).map(s => {
+              const pct = s.score ? Math.round(s.score * 100) : null;
+              return `<span class="src-chip">${esc((s.filename||s.file_id||'').split('/').pop())}${pct ? `<span class="src-score"> ${pct}%</span>` : ''}</span>`;
+            }).join('') + `</div>`;
         }
-        html += `<div style="margin-top: 5px; padding: 5px; background: #f9f9f9; font-size: 10px; max-height: 100px; overflow-y: auto;">${truncateText(result.text, 200)}</div>`;
-        html += `</div>`;
-    });
-    html += '</div>';
-    
-    // Hybrid Column
-    html += '<div class="comparison-column">';
-    html += '<h3>⚡ HYBRID SEARCH</h3>';
-    html += `<p style="text-align: center; margin-bottom: 10px;"><strong>${data.hybrid.length} Results</strong></p>`;
-    data.hybrid.forEach((result, idx) => {
-        html += `<div class="comparison-result">`;
-        html += `<strong>[${idx + 1}] ${escapeHtml(result.filename)}</strong><br>`;
-        html += `<small>ID: ${result.file_id}</small><br>`;
-        if (result.hybrid_info) {
-            html += `<small><strong>Score:</strong> ${result.hybrid_info.combined_score} | <strong>Lex Rank:</strong> #${result.hybrid_info.lexical_rank} | <strong>Sem Rank:</strong> #${result.hybrid_info.semantic_rank}</small><br>`;
+        if (m.type === 'token') {
+          answer += m.token;
+          aiEl.querySelector('.body').innerHTML = srcHtml + esc(answer);
+          aiEl.scrollIntoView({block:'end'});
         }
-        html += `<div style="margin-top: 5px; padding: 5px; background: #f9f9f9; font-size: 10px; max-height: 100px; overflow-y: auto;">${truncateText(result.text, 200)}</div>`;
-        html += `</div>`;
-    });
-    html += '</div>';
-    
-    html += '</div>';
-    resultsDiv.innerHTML = html;
+        if (m.type === 'done') {
+          aiEl.classList.remove('streaming', 'cursor');
+          history.push({role:'assistant', content:answer});
+        }
+        if (m.type === 'error') {
+          aiEl.querySelector('.body').innerHTML = `<span style="color:#ef4444">Error: ${esc(m.message)}</span>`;
+          aiEl.classList.remove('streaming', 'cursor');
+        }
+      }
+    }
+  } catch(e) {
+    aiEl.querySelector('.body').innerHTML = `<span style="color:#ef4444">Error: ${esc(e.message)}</span>`;
+    aiEl.classList.remove('streaming', 'cursor');
+  }
+
+  S.streaming  = false;
+  inp.disabled = false;
+  document.getElementById('send-btn').disabled = false;
+  inp.focus();
 }
 
-// Utilities
-function formatBytes(bytes) {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+function addMsg(role, text, streaming=false) {
+  document.getElementById('chat-empty').style.display = 'none';
+  const msgs = document.getElementById('chat-msgs');
+  const div  = document.createElement('div');
+  div.className = `msg ${role}${streaming?' streaming cursor':''}`;
+  div.innerHTML = `<div class="who">${role==='user'?'YOU':'AI'}</div><div class="body">${esc(text)}</div>`;
+  msgs.appendChild(div);
+  div.scrollIntoView({block:'end'});
+  return div;
 }
 
-function truncateText(text, maxLength) {
-    if (!text) return '[No text]';
-    text = escapeHtml(text);
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + '...';
-}
-
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
+function setStatus(t) { document.getElementById('status').textContent = t; }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 </script>
-
 </body>
 </html>

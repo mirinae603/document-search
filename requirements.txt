@@ -1,16 +1,32 @@
+# ── Web framework ─────────────────────────────────────────────────────────────
 fastapi
-uvicorn
+uvicorn[standard]
 python-multipart
+
+# ── HTTP clients ──────────────────────────────────────────────────────────────
 requests
-psutil
-kreuzberg
-lancedb
-tantivy
-pyyaml
 httpx
 
+# ── Storage ───────────────────────────────────────────────────────────────────
+lancedb
+tantivy
 
-# sentence-transformers
+# ── Document extraction ───────────────────────────────────────────────────────
+kreuzberg          # NO [all] — that pulls easyocr → torch (79MB)
+pytesseract        # Python wrapper around system Tesseract binary
+Pillow             # image handling for OCR
+pdf2image          # scanned PDF → images for Tesseract
 
+# ── AI / LLM ──────────────────────────────────────────────────────────────────
+langchain-core
+langchain-openai
+langchain
 
-# cohere
+# ── Config / utils ────────────────────────────────────────────────────────────
+pyyaml
+psutil
+numpy
+python-dotenv
+
+libsql-client>=0.3.0
+redis[asyncio]>=5.0.0

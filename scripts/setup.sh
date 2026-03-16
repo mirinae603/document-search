@@ -18,6 +18,7 @@ echo -e "${BLUE}================================================${NC}\n"
 # Create all required directories
 mkdir -p "$DATA_DIR/seaweedfs/filerldb2" \
          "$DATA_DIR/lancedb" \
+         "$DATA_DIR/redis" \
          "$REPO_DIR/logs" \
          "$REPO_DIR/config" \
          "$HOME/.seaweedfs"
@@ -29,7 +30,7 @@ if [ -z "$OPENROUTER_API_KEY" ]; then
 fi
 
 # ── 1. Python dependencies ────────────────────────────────────────
-echo -e "${BLUE}[1/3] Installing Python dependencies...${NC}"
+echo -e "${BLUE}[1/4] Installing Python dependencies...${NC}"
 cd "$REPO_DIR"
 
 if [ ! -d "venv" ]; then
@@ -38,18 +39,16 @@ fi
 
 source venv/bin/activate
 pip install --upgrade pip
-pip install fastapi uvicorn python-multipart requests psutil \
-    kreuzberg lancedb tantivy pyyaml openai httpx
+pip install -r requirements.txt
 
 echo -e "${GREEN}✓ Python dependencies installed${NC}\n"
 
 # ── 2. SeaweedFS ──────────────────────────────────────────────────
-echo -e "${BLUE}[2/3] Setting up SeaweedFS...${NC}"
+echo -e "${BLUE}[2/4] Setting up SeaweedFS...${NC}"
 
 SEAWEED_VERSION="3.95"
 mkdir -p "$DATA_DIR/seaweedfs"
 
-# Detect OS and ARCH
 OS=$(uname -s)
 ARCH=$(uname -m)
 
@@ -70,7 +69,6 @@ else
     exit 1
 fi
 
-# Check current installed version
 CURRENT_VERSION=""
 if [ -f "$DATA_DIR/seaweedfs/weed" ]; then
     CURRENT_VERSION=$("$DATA_DIR/seaweedfs/weed" version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1 || echo "")
@@ -85,18 +83,14 @@ else
         echo -e "Downloading SeaweedFS v${SEAWEED_VERSION} (${OS} ${ARCH})..."
     fi
 
-    # Remove old binary and any stale tar
     rm -f "$DATA_DIR/seaweedfs/weed"
     rm -f "$DATA_DIR/seaweedfs/seaweedfs.tar.gz"
 
-    # Download
     curl -L "$SEAWEED_URL" -o "$DATA_DIR/seaweedfs/seaweedfs.tar.gz"
 
-    # Verify it's actually a tar (not a 404 HTML/redirect)
     FILE_SIZE=$(wc -c < "$DATA_DIR/seaweedfs/seaweedfs.tar.gz")
     if [ "$FILE_SIZE" -lt 1000 ]; then
-        echo -e "${RED}✗ Download failed — file too small (${FILE_SIZE} bytes). Check the URL:${NC}"
-        echo -e "  $SEAWEED_URL"
+        echo -e "${RED}✗ Download failed — file too small (${FILE_SIZE} bytes).${NC}"
         rm -f "$DATA_DIR/seaweedfs/seaweedfs.tar.gz"
         exit 1
     fi
@@ -105,21 +99,72 @@ else
     rm -f "$DATA_DIR/seaweedfs/seaweedfs.tar.gz"
     chmod +x "$DATA_DIR/seaweedfs/weed"
 
-    # Confirm
     INSTALLED=$("$DATA_DIR/seaweedfs/weed" version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1 || echo "unknown")
     if [ "$INSTALLED" = "$SEAWEED_VERSION" ]; then
         echo -e "${GREEN}✓ SeaweedFS v${INSTALLED} installed successfully${NC}"
     else
-        echo -e "${YELLOW}⚠ Installed version ${INSTALLED} (expected ${SEAWEED_VERSION}) — may still work${NC}"
+        echo -e "${YELLOW}⚠ Installed version ${INSTALLED} (expected ${SEAWEED_VERSION})${NC}"
     fi
 fi
 
 echo -e "${GREEN}✓ SeaweedFS ready${NC}\n"
 
-# ── 3. Configs ────────────────────────────────────────────────────
-echo -e "${BLUE}[3/3] Writing configs...${NC}"
+# ── 3. Redis ──────────────────────────────────────────────────────
+echo -e "${BLUE}[3/4] Checking Redis...${NC}"
 
-# Always regenerate filer.toml with correct absolute paths
+if command -v redis-server &> /dev/null; then
+    REDIS_VERSION=$(redis-server --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+    echo -e "${GREEN}✓ Redis v${REDIS_VERSION} already installed${NC}"
+else
+    echo -e "${YELLOW}⚠ Redis not found — installing...${NC}"
+    if [ "$OS" = "Darwin" ]; then
+        if command -v brew &> /dev/null; then
+            brew install redis
+            echo -e "${GREEN}✓ Redis installed via Homebrew${NC}"
+        else
+            echo -e "${RED}✗ Homebrew not found. Install manually: brew install redis${NC}"
+        fi
+    elif [ "$OS" = "Linux" ]; then
+        if command -v apt-get &> /dev/null; then
+            sudo apt-get update -qq && sudo apt-get install -y redis-server
+            echo -e "${GREEN}✓ Redis installed via apt${NC}"
+        elif command -v yum &> /dev/null; then
+            sudo yum install -y redis
+            echo -e "${GREEN}✓ Redis installed via yum${NC}"
+        else
+            echo -e "${RED}✗ Cannot auto-install Redis: https://redis.io/docs/getting-started/installation/${NC}"
+        fi
+    fi
+fi
+
+# ── Write redis.conf with fully-expanded absolute paths ──────────
+# IMPORTANT: dir and logfile must be absolute — Redis 7+ rejects
+# relative paths and missing dirs at config parse time.
+# We mkdir here AND write the absolute path to be safe.
+mkdir -p "$DATA_DIR/redis"
+mkdir -p "$REPO_DIR/logs"
+
+REDIS_DATA_DIR="$DATA_DIR/redis"
+REDIS_LOG_FILE="$REPO_DIR/logs/redis.log"
+
+cat > "$REPO_DIR/config/redis.conf" << EOF
+port 6379
+daemonize yes
+dir ${REDIS_DATA_DIR}
+logfile ${REDIS_LOG_FILE}
+appendonly yes
+appendfilename "redis.aof"
+maxmemory 256mb
+maxmemory-policy allkeys-lru
+save 900 1
+save 300 10
+EOF
+
+echo -e "${GREEN}✓ redis.conf written → ${REDIS_DATA_DIR}${NC}\n"
+
+# ── 4. Configs ────────────────────────────────────────────────────
+echo -e "${BLUE}[4/4] Writing configs...${NC}"
+
 cat > "$REPO_DIR/config/filer.toml" << EOF
 [leveldb2]
 enabled = true
@@ -132,16 +177,10 @@ bearer_token = ""
 queue_size = 100
 EOF
 
-# Deploy filer.toml to every path SeaweedFS auto-discovers
 cp "$REPO_DIR/config/filer.toml" "$DATA_DIR/seaweedfs/filer.toml"
 cp "$REPO_DIR/config/filer.toml" "$HOME/.seaweedfs/filer.toml"
+echo -e "${GREEN}✓ filer.toml deployed${NC}"
 
-echo -e "${GREEN}✓ filer.toml deployed to:${NC}"
-echo -e "  $REPO_DIR/config/filer.toml"
-echo -e "  $DATA_DIR/seaweedfs/filer.toml"
-echo -e "  $HOME/.seaweedfs/filer.toml"
-
-# notification.toml — webhook config (separate file from filer.toml)
 cat > "$REPO_DIR/config/notification.toml" << EOF
 [notification.webhook]
 enabled = true
@@ -154,8 +193,6 @@ cp "$REPO_DIR/config/notification.toml" "$DATA_DIR/seaweedfs/notification.toml"
 cp "$REPO_DIR/config/notification.toml" "$HOME/.seaweedfs/notification.toml"
 echo -e "${GREEN}✓ notification.toml deployed${NC}"
 
-
-# config.yaml — only create if missing
 if [ ! -f "$REPO_DIR/config/config.yaml" ]; then
     cat > "$REPO_DIR/config/config.yaml" << 'EOF'
 # Add your config.yaml content here
@@ -172,6 +209,7 @@ echo -e "${GREEN}================================================${NC}\n"
 
 echo -e "${BLUE}Installed versions:${NC}"
 echo -e "  SeaweedFS: $("$DATA_DIR/seaweedfs/weed" version 2>/dev/null | head -1 || echo 'unknown')"
+echo -e "  Redis:     $(redis-server --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || echo 'not found')"
 echo -e "  Python:    $(python3 --version 2>/dev/null)"
 
 echo -e "\n${BLUE}Set your API keys:${NC}"
