@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Document Search System</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #0f0f0f;
+    --surface: #1a1a1a;
+    --surface2:#212121;
+    --border:  #2e2e2e;
+    --border2: #3a3a3a;
+    --accent:  #e8e8e8;
+    --dim:     #666;
+    --dim2:    #888;
+    --lex:     #3b82f6;
+    --hyb:     #a855f7;
+    --green:   #22c55e;
+    --red:     #ef4444;
+    --yellow:  #eab308;
+    --orange:  #f97316;
+  }
+
+  body {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    background: var(--bg);
+    color: var(--accent);
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    grid-template-rows: auto 1fr;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── Topbar ── */
+  #topbar {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 10px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  #topbar h1 { font-size: 13px; letter-spacing: 2px; font-weight: bold; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); flex-shrink: 0; }
+  .status-dot.ok  { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .status-dot.err { background: var(--red);   box-shadow: 0 0 6px var(--red);   }
+  .stat-pill { font-size: 11px; color: var(--dim2); }
+  .stat-pill span { color: var(--accent); font-weight: bold; }
+  #topbar-right { margin-left: auto; display: flex; gap: 8px; }
+  .btn-sm {
+    padding: 4px 12px; background: transparent; border: 1px solid var(--border);
+    color: var(--accent); cursor: pointer; font-family: monospace; font-size: 11px;
+    letter-spacing: 1px; white-space: nowrap;
+  }
+  .btn-sm:hover { border-color: var(--accent); }
+
+  /* ── Left panel ── */
+  #left {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    height: 100%;
+  }
+  .panel-title {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--dim);
+    padding: 8px 14px 6px;
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  /* Upload */
+  #upload-area { padding: 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  #file-drop {
+    border: 1px dashed var(--border);
+    padding: 14px;
+    text-align: center;
+    cursor: pointer;
+    color: var(--dim2);
+    transition: border-color .15s, color .15s;
+    font-size: 11px;
+  }
+  #file-drop:hover, #file-drop.drag { border-color: var(--accent); color: var(--accent); }
+  #file-drop input { display: none; }
+  #upload-progress { margin-top: 6px; font-size: 10px; min-height: 16px; color: var(--dim2); }
+  #upload-progress.ok  { color: var(--green); }
+  #upload-progress.err { color: var(--red);   }
+
+  /* Filters */
+  #filter-area {
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    flex-shrink: 0;
+  }
+  .filter-row { display: flex; flex-direction: column; gap: 3px; }
+  .filter-row label { font-size: 9px; color: var(--dim); text-transform: uppercase; letter-spacing: 1px; }
+  .filter-row select,
+  .filter-row input[type="date"] {
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--accent); padding: 4px 7px;
+    font-family: monospace; font-size: 11px; width: 100%;
+  }
+  .filter-row select:focus,
+  .filter-row input:focus { outline: none; border-color: var(--accent); }
+  #custom-dates { display: none; flex-direction: column; gap: 4px; }
+
+  /* Q&A */
+  #qa-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 12px;
+    gap: 7px;
+    min-height: 0;
+  }
+  #selected-files { font-size: 10px; color: var(--dim2); flex-shrink: 0; line-height: 1.5; }
+  #selected-files strong { color: var(--lex); }
+  #qa-input {
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--accent); padding: 7px;
+    font-family: monospace; font-size: 11px;
+    resize: none; height: 56px; width: 100%; flex-shrink: 0;
+  }
+  #qa-input:focus { outline: none; border-color: var(--accent); }
+  .btn-full {
+    width: 100%; padding: 7px;
+    background: var(--accent); color: var(--bg);
+    border: none; cursor: pointer;
+    font-family: monospace; font-size: 11px;
+    font-weight: bold; letter-spacing: 1px; flex-shrink: 0;
+  }
+  .btn-full:hover { background: #fff; }
+  .btn-full:disabled { background: var(--border); color: var(--dim); cursor: not-allowed; }
+  #sources-preview { font-size: 10px; color: var(--dim2); overflow-y: auto; max-height: 70px; flex-shrink: 0; }
+  #sources-preview .src-item { padding: 2px 0; border-bottom: 1px solid var(--border); color: var(--accent); }
+  #qa-answer {
+    flex: 1; overflow-y: auto;
+    font-size: 11px; line-height: 1.7;
+    color: var(--accent); background: var(--bg);
+    border: 1px solid var(--border); padding: 8px;
+    min-height: 0;
+  }
+  #qa-answer.streaming { border-color: var(--hyb); }
+  .qa-cursor::after { content: '▌'; animation: blink .7s step-end infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* ── Right panel ── */
+  #right { display: flex; flex-direction: column; overflow: hidden; height: 100%; }
+
+  /* Search bar */
+  #search-bar {
+    display: flex; gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+  #search-input {
+    flex: 1; background: var(--bg);
+    border: 1px solid var(--border); color: var(--accent);
+    padding: 7px 10px; font-family: monospace; font-size: 12px;
+  }
+  #search-input:focus { outline: none; border-color: var(--accent); }
+  #search-btn {
+    padding: 7px 18px; background: var(--accent);
+    color: var(--bg); border: none; cursor: pointer;
+    font-family: monospace; font-size: 12px; font-weight: bold;
+  }
+  #search-btn:hover { background: #fff; }
+  #search-limit {
+    width: 52px; padding: 7px 5px;
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--accent); font-family: monospace; font-size: 11px; text-align: center;
+  }
+
+  /* Tabs */
+  #results-tabs {
+    display: flex; border-bottom: 1px solid var(--border);
+    background: var(--surface); flex-shrink: 0;
+  }
+  .tab {
+    padding: 7px 14px; cursor: pointer;
+    font-size: 11px; color: var(--dim2);
+    border-right: 1px solid var(--border);
+    letter-spacing: 1px; text-transform: uppercase; user-select: none;
+  }
+  .tab:hover { color: var(--accent); }
+  .tab.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+  .tab .badge {
+    display: inline-block; margin-left: 5px;
+    padding: 1px 5px; font-size: 9px;
+    border-radius: 2px; background: var(--border); color: var(--dim2);
+  }
+  .tab.lex-tab.active .badge { background: var(--lex); color: #fff; }
+  .tab.hyb-tab.active .badge { background: var(--hyb); color: #fff; }
+  #search-status { margin-left: auto; padding: 7px 14px; font-size: 10px; color: var(--dim2); align-self: center; }
+
+  /* Results pane */
+  #results-pane { flex: 1; overflow-y: auto; padding: 10px 12px; min-height: 0; }
+
+  /* ── Result card ── */
+  .result-card {
+    border: 1px solid var(--border);
+    margin-bottom: 8px;
+    background: var(--surface);
+    transition: border-color .1s;
+  }
+  .result-card:hover { border-color: var(--border2); }
+  .result-card.selected { border-color: var(--lex); }
+
+  /* Card header */
+  .card-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer; user-select: none;
+  }
+  .card-header input[type="checkbox"] { cursor: pointer; accent-color: var(--lex); flex-shrink: 0; }
+  .card-rank { font-size: 10px; color: var(--dim); min-width: 18px; }
+  .card-filename { font-weight: bold; font-size: 11px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card-type-badge {
+    font-size: 9px; padding: 2px 6px; border-radius: 2px;
+    font-weight: bold; letter-spacing: 1px; flex-shrink: 0;
+  }
+  .badge-lex { background: var(--lex); color: #fff; }
+  .badge-hyb { background: var(--hyb); color: #fff; }
+  .card-chevron { color: var(--dim); font-size: 10px; flex-shrink: 0; transition: transform .15s; }
+  .card-chevron.open { transform: rotate(90deg); }
+  .preview-btn {
+    font-size: 10px; color: var(--dim2);
+    cursor: pointer; padding: 2px 6px;
+    border: 1px solid var(--border); background: transparent;
+    font-family: monospace; flex-shrink: 0;
+  }
+  .preview-btn:hover { border-color: var(--lex); color: var(--lex); }
+
+  /* Score bar (compact, always visible) */
+  .card-score-row {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    padding: 5px 10px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .score-pill {
+    font-size: 10px; padding: 2px 7px;
+    border-radius: 2px; background: var(--bg);
+    border: 1px solid var(--border2);
+    white-space: nowrap;
+  }
+  .score-pill .label { color: var(--dim2); margin-right: 4px; }
+  .score-pill .val   { color: var(--accent); font-weight: bold; }
+  .score-pill.hi     { border-color: var(--green); }
+  .score-pill.hi .val { color: var(--green); }
+  .score-pill.med    { border-color: var(--yellow); }
+  .score-pill.med .val { color: var(--yellow); }
+  .score-pill.lo     { border-color: var(--red); }
+  .score-pill.lo .val { color: var(--red); }
+
+  /* Collapsible body */
+  .card-body { display: none; }
+  .card-body.open { display: block; }
+
+  /* Meta grid */
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 1px;
+    border-bottom: 1px solid var(--border);
+  }
+  .meta-cell {
+    padding: 5px 10px;
+    background: var(--surface2);
+    font-size: 10px;
+  }
+  .meta-cell .mk { color: var(--dim); margin-right: 4px; }
+  .meta-cell .mv { color: var(--accent); }
+
+  /* Section headers inside card */
+  .card-section {
+    padding: 5px 10px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    font-size: 9px; letter-spacing: 2px;
+    color: var(--dim); text-transform: uppercase;
+  }
+
+  /* Match score details */
+  .match-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 1px;
+    border-bottom: 1px solid var(--border);
+  }
+  .match-cell {
+    padding: 6px 10px;
+    background: var(--surface2);
+    font-size: 10px;
+    text-align: center;
+  }
+  .match-cell .big { font-size: 15px; font-weight: bold; color: var(--accent); display: block; }
+  .match-cell .lbl { font-size: 9px; color: var(--dim); text-transform: uppercase; }
+
+  /* Term frequency tags */
+  .term-tags { padding: 7px 10px; display: flex; flex-wrap: wrap; gap: 5px; border-bottom: 1px solid var(--border); }
+  .term-tag {
+    font-size: 10px; padding: 2px 8px;
+    background: rgba(59,130,246,.12);
+    border: 1px solid rgba(59,130,246,.3);
+    border-radius: 2px;
+  }
+  .term-tag .t { color: var(--lex); }
+  .term-tag .c { color: var(--dim2); margin-left: 4px; }
+
+  /* Highlights */
+  .highlights { padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--border); }
+  .hl-item {
+    padding: 6px 8px;
+    background: var(--surface2);
+    border-left: 2px solid var(--yellow);
+    font-size: 10px; line-height: 1.6; color: #aaa;
+  }
+  .hl-item mark { background: rgba(234,179,8,.25); color: var(--yellow); padding: 0 2px; border-radius: 1px; }
+  .hl-meta { font-size: 9px; color: var(--dim); margin-top: 3px; }
+
+  /* Full text */
+  .full-text {
+    padding: 8px 10px;
+    font-size: 10px; line-height: 1.7;
+    color: #999; white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 200px; overflow-y: auto;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .full-text.expanded { max-height: none; }
+
+  /* Expand toggle */
+  .expand-toggle {
+    padding: 5px 10px;
+    font-size: 10px; color: var(--dim2);
+    cursor: pointer; display: block;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .expand-toggle:hover { color: var(--accent); }
+
+  mark { background: rgba(234,179,8,.25); color: var(--yellow); padding: 0 2px; }
+  .empty { padding: 40px; text-align: center; color: var(--dim2); font-size: 11px; line-height: 2; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); }
+  ::-webkit-scrollbar-thumb:hover { background: #444; }
+
+  /* Preview modal */
+  #preview-modal {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.85); z-index: 1000;
+    align-items: center; justify-content: center;
+  }
+  #preview-modal.open { display: flex; }
+  #preview-inner {
+    background: var(--surface); border: 1px solid var(--border);
+    width: 80vw; height: 85vh;
+    display: flex; flex-direction: column;
+  }
+  #preview-titlebar {
+    display: flex; align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px; gap: 10px; flex-shrink: 0;
+  }
+  #preview-frame { flex: 1; border: none; background: #fff; }
+  #preview-text  { flex: 1; padding: 14px; overflow: auto; font-size: 11px; line-height: 1.7; color: var(--accent); }
+  .close-btn { margin-left: auto; cursor: pointer; color: var(--dim2); font-size: 16px; line-height: 1; }
+  .close-btn:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div id="topbar">
+  <div class="status-dot" id="status-dot"></div>
+  <h1>DOC SEARCH SYSTEM</h1>
+  <div class="stat-pill">docs: <span id="v-docs">–</span></div>
+  <div class="stat-pill">chunks: <span id="v-chunks">–</span></div>
+  <div class="stat-pill">size: <span id="v-size">–</span></div>
+  <div id="topbar-right">
+    <button class="btn-sm" onclick="triggerReindex()">REINDEX ALL</button>
+    <button class="btn-sm" onclick="loadStats()">REFRESH</button>
+  </div>
+</div>
+
+<!-- Left panel -->
+<div id="left">
+
+  <div class="panel-title">UPLOAD</div>
+  <div id="upload-area">
+    <div id="file-drop"
+         onclick="document.getElementById('file-input').click()"
+         ondragover="event.preventDefault();this.classList.add('drag')"
+         ondragleave="this.classList.remove('drag')"
+         ondrop="handleDrop(event)">
+      <input type="file" id="file-input" accept=".pdf,.docx,.txt" onchange="uploadFile(this.files[0])">
+      DROP FILE OR CLICK<br>
+      <small style="color:var(--dim)">pdf · docx · txt</small>
+    </div>
+    <div id="upload-progress"></div>
+  </div>
+
+  <div class="panel-title">FILTERS</div>
+  <div id="filter-area">
+    <div class="filter-row">
+      <label>Source Type</label>
+      <select id="f-source">
+        <option value="">All</option>
+        <option value="uploaded">uploaded</option>
+        <option value="webhook">webhook</option>
+        <option value="reindex">reindex</option>
+      </select>
+    </div>
+    <div class="filter-row">
+      <label>File Type</label>
+      <select id="f-filetype">
+        <option value="">All</option>
+        <option value="pdf">pdf</option>
+        <option value="docx">docx</option>
+        <option value="txt">txt</option>
+        <option value="xlsx">xlsx</option>
+      </select>
+    </div>
+    <div class="filter-row">
+      <label>Date Range</label>
+      <select id="f-duration" onchange="toggleDateRange()">
+        <option value="">All time</option>
+        <option value="last_24h">Last 24h</option>
+        <option value="last_7d">Last 7 days</option>
+        <option value="last_30d">Last 30 days</option>
+        <option value="last_90d">Last 90 days</option>
+        <option value="custom">Custom…</option>
+      </select>
+    </div>
+    <div id="custom-dates">
+      <input type="date" id="f-date-from">
+      <input type="date" id="f-date-to">
+    </div>
+  </div>
+
+  <div class="panel-title">Q&amp;A OVER RESULTS</div>
+  <div id="qa-panel">
+    <div id="selected-files">No files selected — check results →</div>
+    <button class="btn-sm" id="preview-sources-btn" onclick="previewSources()" style="width:100%" disabled>PREVIEW SOURCES</button>
+    <textarea id="qa-input" placeholder="Ask a question about selected files…"></textarea>
+    <button class="btn-full" id="ask-btn" onclick="askQuestion()" disabled>ASK →</button>
+    <div id="sources-preview"></div>
+    <div id="qa-answer" class="empty">Answer appears here…</div>
+  </div>
+
+</div>
+
+<!-- Right panel -->
+<div id="right">
+
+  <div id="search-bar">
+    <input type="text" id="search-input" placeholder="Search query…">
+    <input type="number" id="search-limit" value="10" min="1" max="50" title="Limit">
+    <button id="search-btn" onclick="doSearch()">SEARCH</button>
+  </div>
+
+  <div id="results-tabs">
+    <div class="tab lex-tab active" onclick="switchTab('lexical')" id="tab-lexical">
+      LEXICAL <span class="badge" id="badge-lexical">0</span>
+    </div>
+    <div class="tab hyb-tab" onclick="switchTab('hybrid')" id="tab-hybrid">
+      HYBRID <span class="badge" id="badge-hybrid">0</span>
+    </div>
+    <div id="search-status"></div>
+  </div>
+
+  <div id="results-pane">
+    <div class="empty">Run a search to see results.<br>Lexical arrives first, hybrid follows.</div>
+  </div>
+
+</div>
+
+<!-- Preview modal -->
+<div id="preview-modal">
+  <div id="preview-inner">
+    <div id="preview-titlebar">
+      <span id="preview-title">Preview</span>
+      <a id="preview-raw-link" target="_blank" style="font-size:10px;color:var(--lex);margin-left:8px;">open raw ↗</a>
+      <span class="close-btn" onclick="closePreview()">✕</span>
+    </div>
+    <iframe id="preview-frame" style="display:none"></iframe>
+    <div id="preview-text" style="display:none"></div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────────────────────
+const state = {
+  lexical:   [],
+  hybrid:    [],
+  tab:       'lexical',
+  selected:  new Set(),
+  fileMap:   {},
+  searching: false,
+  expanded:  new Set(),   // card ids that are open
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATS
+// ─────────────────────────────────────────────────────────────────────────────
+async function loadStats() {
+  try {
+    await fetch('/health');
+    const s = await fetch('/stats').then(r => r.json());
+    const d = s.documents || {};
+    document.getElementById('status-dot').className = 'status-dot ok';
+    document.getElementById('v-docs').textContent   = d.total_documents ?? '–';
+    document.getElementById('v-chunks').textContent = d.total_chunks    ?? '–';
+    document.getElementById('v-size').textContent   = fmtBytes(d.total_size_bytes ?? 0);
+  } catch {
+    document.getElementById('status-dot').className = 'status-dot err';
+  }
+}
+
+async function triggerReindex() {
+  const btn = event.target;
+  btn.textContent = 'QUEUING…';
+  try {
+    const r = await fetch('/admin/reindex?mode=all&background=true', { method: 'POST' });
+    const d = await r.json();
+    btn.textContent = d.status === 'queued' ? `QUEUED (${d.queued})` : 'REINDEX ALL';
+  } catch { btn.textContent = 'ERROR'; }
+  setTimeout(() => { btn.textContent = 'REINDEX ALL'; loadStats(); }, 3000);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UPLOAD
+// ─────────────────────────────────────────────────────────────────────────────
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('file-drop').classList.remove('drag');
+  uploadFile(e.dataTransfer.files[0]);
+}
+
+async function uploadFile(file) {
+  if (!file) return;
+  const prog = document.getElementById('upload-progress');
+  prog.className = '';
+  prog.textContent = `Uploading ${file.name}…`;
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    const r = await fetch('/upload', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (r.ok) {
+      prog.className   = 'ok';
+      prog.textContent = `✓ ${d.filename} (${fmtBytes(d.size)})`;
+      loadStats();
+    } else throw new Error(d.detail || 'Upload failed');
+  } catch(e) {
+    prog.className   = 'err';
+    prog.textContent = `✗ ${e.message}`;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FILTERS
+// ─────────────────────────────────────────────────────────────────────────────
+function toggleDateRange() {
+  document.getElementById('custom-dates').style.display =
+    document.getElementById('f-duration').value === 'custom' ? 'flex' : 'none';
+}
+
+function getFilters() {
+  const dur = document.getElementById('f-duration').value;
+  const src = document.getElementById('f-source').value;
+  const ft  = document.getElementById('f-filetype').value;
+  const p   = new URLSearchParams();
+  if (src) p.set('source_type', src);
+  if (ft)  p.set('file_type', ft);
+  if (dur && dur !== 'custom') p.set('duration', dur);
+  else if (dur === 'custom') {
+    const df = document.getElementById('f-date-from').value;
+    const dt = document.getElementById('f-date-to').value;
+    if (df) p.set('date_from', df + 'T00:00:00');
+    if (dt) p.set('date_to',   dt + 'T23:59:59');
+  }
+  return p;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SEARCH
+// ─────────────────────────────────────────────────────────────────────────────
+function doSearch() {
+  const q = document.getElementById('search-input').value.trim();
+  if (!q || state.searching) return;
+
+  state.lexical  = [];
+  state.hybrid   = [];
+  state.selected.clear();
+  state.fileMap  = {};
+  state.expanded.clear();
+  renderResults();
+  updateSelectedUI();
+
+  const p = getFilters();
+  p.set('query', q);
+  p.set('limit', document.getElementById('search-limit').value || 10);
+  p.set('stream', 'true');
+
+  const statusEl = document.getElementById('search-status');
+  statusEl.textContent = '● searching…';
+  state.searching = true;
+  document.getElementById('search-btn').textContent = '…';
+  const t0 = Date.now();
+
+  const es = new EventSource(`/search?${p.toString()}`);
+
+  es.onmessage = e => {
+    const msg = JSON.parse(e.data);
+
+    if (msg.type === 'lexical') {
+      state.lexical = msg.results || [];
+      document.getElementById('badge-lexical').textContent = state.lexical.length;
+      state.lexical.forEach(r => { state.fileMap[r.file_id] = { filename: r.filename, file_path: r.file_path }; });
+      if (state.tab === 'lexical') renderResults();
+      statusEl.textContent = `● lex ${msg.elapsed_ms ?? (Date.now()-t0)}ms — waiting hybrid…`;
+    }
+    if (msg.type === 'hybrid') {
+      state.hybrid = msg.results || [];
+      document.getElementById('badge-hybrid').textContent = state.hybrid.length;
+      state.hybrid.forEach(r => { state.fileMap[r.file_id] = { filename: r.filename, file_path: r.file_path }; });
+      if (state.tab === 'hybrid') renderResults();
+    }
+    if (msg.type === 'done') {
+      es.close();
+      state.searching = false;
+      document.getElementById('search-btn').textContent = 'SEARCH';
+      statusEl.textContent = `done in ${msg.total_elapsed_ms ?? (Date.now()-t0)}ms`;
+    }
+  };
+
+  es.onerror = () => {
+    es.close();
+    state.searching = false;
+    document.getElementById('search-btn').textContent = 'SEARCH';
+    statusEl.textContent = '✗ stream error';
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TABS
+// ─────────────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  state.tab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  renderResults();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────────────────────────────────────────
+function renderResults() {
+  const pane    = document.getElementById('results-pane');
+  const results = state.tab === 'lexical' ? state.lexical : state.hybrid;
+  if (!results.length) {
+    pane.innerHTML = `<div class="empty">${state.searching ? '● searching…' : 'No results.'}</div>`;
+    return;
+  }
+  pane.innerHTML = results.map((r, i) => buildCard(r, i)).join('');
+  document.querySelectorAll('.res-check').forEach(cb => {
+    cb.checked = state.selected.has(cb.dataset.fid);
+    if (cb.checked) cb.closest('.result-card').classList.add('selected');
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BUILD CARD
+// ─────────────────────────────────────────────────────────────────────────────
+function buildCard(r, idx) {
+  const isLex  = r.search_type === 'lexical';
+  const cid    = `c-${r.chunk_id || idx}`;
+  const isOpen = state.expanded.has(cid);
+
+  // ── Header score summary (always visible) ──────────────────────────────────
+  let scorePills = '';
+
+  if (isLex && r.match_score) {
+    const ms  = r.match_score;
+    const cov = parseFloat(ms.query_coverage_pct ?? ms.query_coverage ?? 0);
+    const den = parseFloat(ms.match_density ?? 0);
+    const fts = parseFloat(ms.fts_score ?? 0);
+    scorePills += pill('COVERAGE', cov.toFixed(1) + '%', cov >= 80 ? 'hi' : cov >= 40 ? 'med' : 'lo');
+    scorePills += pill('DENSITY',  den.toFixed(2),       den >= 5  ? 'hi' : den >= 1  ? 'med' : 'lo');
+    scorePills += pill('MATCHES',  ms.total_matches ?? 0, '');
+    scorePills += pill('TERMS HIT',ms.unique_terms_matched ?? 0, '');
+    scorePills += pill('BM25',     fts.toFixed(4), '');
+    if (ms.term_proximity_score !== undefined)
+      scorePills += pill('PROXIMITY', parseFloat(ms.term_proximity_score).toFixed(1), '');
+  }
+
+  if (!isLex && r.hybrid_info) {
+    const hi  = r.hybrid_info;
+    const si  = r.semantic_info || {};
+    scorePills += pill('RANK',    '#' + (hi.rank ?? '–'), '');
+    scorePills += pill('FUSED',   parseFloat(hi.lancedb_fused_score ?? 0).toFixed(4), '');
+    if (si.similarity_score !== undefined)
+      scorePills += pill('SIM',   parseFloat(si.similarity_score).toFixed(1) + '%',
+                          parseFloat(si.similarity_score) >= 70 ? 'hi' : parseFloat(si.similarity_score) >= 40 ? 'med' : 'lo');
+    if (si.vector_distance !== undefined)
+      scorePills += pill('DIST',  parseFloat(si.vector_distance).toFixed(4), '');
+    if (r.match_score)
+      scorePills += pill('MATCHES', r.match_score.total_matches ?? 0, '');
+  }
+
+  // ── Collapsible body ───────────────────────────────────────────────────────
+  let body = '';
+
+  // 1. Document + chunk metadata grid
+  body += `<div class="card-section">METADATA</div><div class="meta-grid">`;
+  body += mc('file_id',     r.file_id);
+  body += mc('chunk',       r.chunk_index ?? '–');
+  body += mc('chars',       (r.char_start ?? '–') + '→' + (r.char_end ?? '–'));
+  body += mc('tokens',      r.token_count ?? '–');
+  body += mc('file_size',   fmtBytes(r.file_size ?? 0));
+  body += mc('type',        r.content_type || r.file_type || '–');
+  body += mc('source',      r.source_type || '–');
+  body += mc('indexed',     fmtDate(r.indexed_at));
+  if (r.client_tag)  body += mc('client',  r.client_tag);
+  if (r.project_tag) body += mc('project', r.project_tag);
+  if (r.domain_tag)  body += mc('domain',  r.domain_tag);
+  body += `</div>`;
+
+  // 2. Full match score breakdown (lexical)
+  if (r.match_score) {
+    const ms = r.match_score;
+    body += `<div class="card-section">MATCH SCORE BREAKDOWN</div><div class="match-grid">`;
+    body += mb(ms.total_matches ?? 0,              'total matches');
+    body += mb(ms.unique_terms_matched ?? 0,        'unique terms hit');
+    body += mb((ms.query_coverage_pct ?? ms.query_coverage ?? 0) + '%', 'query coverage');
+    body += mb(parseFloat(ms.match_density ?? 0).toFixed(3), 'density /1k chars');
+    body += mb(ms.text_length_chars ?? 0,           'chunk chars');
+    body += mb(ms.text_length_tokens ?? 0,          'chunk tokens');
+    body += mb(parseFloat(ms.fts_score ?? 0).toFixed(5), 'bm25 score');
+    body += mb(parseFloat(ms.term_proximity_score ?? 0).toFixed(1), 'proximity');
+    body += `</div>`;
+
+    // Term frequency tags
+    const tf = ms.term_frequencies || {};
+    if (Object.keys(tf).length) {
+      body += `<div class="card-section">TERM FREQUENCIES</div><div class="term-tags">`;
+      for (const [t, c] of Object.entries(tf))
+        body += `<span class="term-tag"><span class="t">${esc(t)}</span><span class="c">×${c}</span></span>`;
+      body += `</div>`;
+    }
+
+    // Term positions
+    const tp = ms.term_positions || {};
+    if (Object.keys(tp).length) {
+      body += `<div class="card-section">TERM POSITIONS (first occurrence)</div><div class="term-tags">`;
+      for (const [t, p] of Object.entries(tp))
+        body += `<span class="term-tag"><span class="t">${esc(t)}</span><span class="c">@${p}</span></span>`;
+      body += `</div>`;
+    }
+  }
+
+  // 3. Semantic info (hybrid)
+  if (r.semantic_info && Object.keys(r.semantic_info).length) {
+    const si = r.semantic_info;
+    body += `<div class="card-section">SEMANTIC / VECTOR INFO</div><div class="match-grid">`;
+    if (si.similarity_score !== undefined) body += mb(parseFloat(si.similarity_score).toFixed(2) + '%', 'similarity');
+    if (si.vector_distance  !== undefined) body += mb(parseFloat(si.vector_distance).toFixed(6),  'vector distance');
+    if (si.cosine_like_score !== undefined) body += mb(parseFloat(si.cosine_like_score).toFixed(4), 'cosine-like');
+    body += `</div>`;
+  }
+
+  // 4. Hybrid info
+  if (r.hybrid_info && Object.keys(r.hybrid_info).length) {
+    const hi = r.hybrid_info;
+    body += `<div class="card-section">HYBRID SCORING</div><div class="match-grid">`;
+    body += mb('#' + (hi.rank ?? '–'),                                    'result rank');
+    body += mb(parseFloat(hi.lancedb_fused_score ?? 0).toFixed(5), 'fused score (rrf)');
+    body += `</div>`;
+  }
+
+  // 5. Highlights
+  const hls = r.highlights || [];
+  if (hls.length) {
+    body += `<div class="card-section">HIGHLIGHTS (${hls.length})</div><div class="highlights">`;
+    hls.forEach((h, i) => {
+      body += `<div class="hl-item">${h.highlighted || esc(h.text || '')}
+        <div class="hl-meta">term: "${esc(h.matched_term || '')}" · offset: ${h.char_offset ?? '–'} · len: ${h.snippet_length ?? '–'}</div>
+      </div>`;
+    });
+    body += `</div>`;
+  }
+
+  // 6. Full text
+  const ftId = `ft-${cid}`;
+  body += `<div class="card-section">FULL CHUNK TEXT (${(r.text||'').length} chars)</div>`;
+  body += `<div class="full-text" id="${ftId}">${esc(r.text || '')}</div>`;
+  body += `<span class="expand-toggle" onclick="toggleText('${ftId}', this)">▼ expand full text</span>`;
+
+  // ── Assemble card ──────────────────────────────────────────────────────────
+  return `
+<div class="result-card${state.selected.has(r.file_id) ? ' selected' : ''}" id="${cid}">
+  <div class="card-header" onclick="toggleCard('${cid}')">
+    <input type="checkbox" class="res-check"
+      data-fid="${r.file_id}" data-fname="${esc(r.filename)}" data-fpath="${esc(r.file_path||'')}"
+      onclick="event.stopPropagation(); toggleSelect(this)">
+    <span class="card-rank">${idx + 1}</span>
+    <span class="card-filename" title="${esc(r.filename)}">${esc(r.filename)}</span>
+    <span class="card-type-badge ${isLex ? 'badge-lex' : 'badge-hyb'}">${r.search_type}</span>
+    <button class="preview-btn" onclick="event.stopPropagation(); openPreview('${esc(r.file_path||'')}', '${esc(r.filename)}')">preview</button>
+    <span class="card-chevron${isOpen ? ' open' : ''}">▶</span>
+  </div>
+  <div class="card-score-row">${scorePills}</div>
+  <div class="card-body${isOpen ? ' open' : ''}">${body}</div>
+</div>`;
+}
+
+function pill(label, val, cls) {
+  return `<span class="score-pill${cls ? ' '+cls : ''}"><span class="label">${label}</span><span class="val">${val}</span></span>`;
+}
+function mc(k, v) {
+  return `<div class="meta-cell"><span class="mk">${k}</span><span class="mv">${esc(String(v))}</span></div>`;
+}
+function mb(val, label) {
+  return `<div class="match-cell"><span class="big">${esc(String(val))}</span><span class="lbl">${label}</span></div>`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CARD EXPAND / COLLAPSE
+// ─────────────────────────────────────────────────────────────────────────────
+function toggleCard(cid) {
+  const card    = document.getElementById(cid);
+  const body    = card.querySelector('.card-body');
+  const chevron = card.querySelector('.card-chevron');
+  const isOpen  = body.classList.toggle('open');
+  chevron.classList.toggle('open', isOpen);
+  if (isOpen) state.expanded.add(cid);
+  else        state.expanded.delete(cid);
+}
+
+function toggleText(ftId, btn) {
+  const el     = document.getElementById(ftId);
+  const isOpen = el.classList.toggle('expanded');
+  btn.textContent = isOpen ? '▲ collapse full text' : '▼ expand full text';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SELECTION
+// ─────────────────────────────────────────────────────────────────────────────
+function toggleSelect(cb) {
+  const fid = cb.dataset.fid;
+  if (cb.checked) {
+    state.selected.add(fid);
+    state.fileMap[fid] = { filename: cb.dataset.fname, file_path: cb.dataset.fpath };
+  } else {
+    state.selected.delete(fid);
+  }
+  cb.closest('.result-card').classList.toggle('selected', cb.checked);
+  updateSelectedUI();
+}
+
+function updateSelectedUI() {
+  const n      = state.selected.size;
+  const selEl  = document.getElementById('selected-files');
+  const askBtn = document.getElementById('ask-btn');
+  const preBtn = document.getElementById('preview-sources-btn');
+  if (n === 0) {
+    selEl.innerHTML = 'No files selected — check results →';
+    askBtn.disabled = preBtn.disabled = true;
+  } else {
+    const names = [...state.selected].map(id => state.fileMap[id]?.filename || id);
+    selEl.innerHTML = `<strong>${n} selected:</strong> ${names.map(esc).join(', ')}`;
+    askBtn.disabled = preBtn.disabled = false;
+  }
+  document.getElementById('sources-preview').innerHTML = '';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Q&A
+// ─────────────────────────────────────────────────────────────────────────────
+async function previewSources() {
+  const q   = document.getElementById('qa-input').value.trim() || 'summary';
+  const btn = document.getElementById('preview-sources-btn');
+  btn.textContent = '…';
+  try {
+    const r = await fetch('/qa/sources', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q, file_ids: [...state.selected], top_k: 5 }),
+    });
+    const d  = await r.json();
+    const el = document.getElementById('sources-preview');
+    el.innerHTML = `<div style="color:var(--dim);margin-bottom:3px">Using ${d.chunk_count} chunks:</div>` +
+      (d.sources || []).map(s => `<div class="src-item">${esc(s.filename)} <span style="color:var(--dim)">score ${s.score}</span></div>`).join('');
+  } catch(e) {
+    document.getElementById('sources-preview').innerHTML = `<span style="color:var(--red)">✗ ${e.message}</span>`;
+  }
+  btn.textContent = 'PREVIEW SOURCES';
+}
+
+async function askQuestion() {
+  const q = document.getElementById('qa-input').value.trim();
+  if (!q || !state.selected.size) return;
+
+  const ansEl = document.getElementById('qa-answer');
+  const btn   = document.getElementById('ask-btn');
+  ansEl.className   = 'streaming qa-cursor';
+  ansEl.textContent = '';
+  btn.disabled      = true;
+
+  try {
+    const resp = await fetch('/qa/ask?stream=true', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q, file_ids: [...state.selected], top_k: 5, conversation_history: [] }),
+    });
+    const reader  = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let   buffer  = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        let msg; try { msg = JSON.parse(line.slice(6)); } catch { continue; }
+        if (msg.type === 'sources') {
+          document.getElementById('sources-preview').innerHTML =
+            `<div style="color:var(--dim);margin-bottom:3px">from ${msg.sources.length} chunks:</div>` +
+            msg.sources.map(s => `<div class="src-item">${esc(s.filename)} <span style="color:var(--dim)">${s.score}</span></div>`).join('');
+        }
+        if (msg.type === 'token') { ansEl.classList.remove('empty'); ansEl.textContent += msg.token; ansEl.scrollTop = ansEl.scrollHeight; }
+        if (msg.type === 'done')  { ansEl.className = ''; }
+      }
+    }
+  } catch(e) {
+    ansEl.className   = '';
+    ansEl.style.color = 'var(--red)';
+    ansEl.textContent = `✗ ${e.message}`;
+  }
+  btn.disabled = false;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PREVIEW MODAL
+// ─────────────────────────────────────────────────────────────────────────────
+async function openPreview(filePath, filename) {
+  if (!filePath) return;
+  document.getElementById('preview-title').textContent = filename;
+  document.getElementById('preview-raw-link').href     = `/preview?file_path=${encodeURIComponent(filePath)}`;
+  document.getElementById('preview-modal').classList.add('open');
+
+  const frame = document.getElementById('preview-frame');
+  const text  = document.getElementById('preview-text');
+  frame.style.display = 'none';
+  text.style.display  = 'block';
+  text.textContent    = 'Loading…';
+
+  try {
+    const r  = await fetch(`/preview?file_path=${encodeURIComponent(filePath)}`);
+    const ct = r.headers.get('content-type') || '';
+    if (ct.includes('pdf')) {
+      frame.src           = URL.createObjectURL(await r.blob());
+      frame.style.display = 'block';
+      text.style.display  = 'none';
+    } else {
+      const d = await r.json();
+      text.textContent = d.content || '[empty]';
+    }
+  } catch(e) { text.textContent = `✗ Preview failed: ${e.message}`; }
+}
+
+function closePreview() {
+  document.getElementById('preview-modal').classList.remove('open');
+  document.getElementById('preview-frame').src = '';
+}
+document.getElementById('preview-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closePreview();
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UTILS
+// ─────────────────────────────────────────────────────────────────────────────
+function fmtBytes(b) {
+  if (!b) return '0 B';
+  const u = ['B','KB','MB','GB'];
+  const i = Math.floor(Math.log(b) / Math.log(1024));
+  return (b / Math.pow(1024, i)).toFixed(1) + ' ' + u[i];
+}
+
+function fmtDate(iso) {
+  if (!iso) return '–';
+  try { return new Date(iso).toLocaleString(); } catch { return iso; }
+}
+
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────────────────────
+loadStats();
+setInterval(loadStats, 15000);
+document.getElementById('search-input').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+</script>
+</body>
+</html>

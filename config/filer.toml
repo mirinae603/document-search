@@ -1,8 +1,7 @@
 [leveldb2]
 enabled = true
-dir = "./data/seaweedfs/filerldb2"
+dir = "/Users/shivanshdarshan/Documents/Profession/DCC/lexical_search_prod/document-search/data/seaweedfs/filerldb2"
 
-# Webhook notification for file events
 [notification.webhook]
 enabled = true
 url = "http://localhost:8000/webhook/seaweed"

@@ -1,0 +1,5 @@
+[notification.webhook]
+enabled = true
+endpoint = "http://localhost:8000/webhook/seaweed"
+bearer_token = ""
+queue_size = 100

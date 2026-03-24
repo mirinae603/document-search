@@ -19,18 +19,16 @@ echo -e "${BLUE}================================================${NC}"
 echo -e "${BLUE}  Starting Document Search System${NC}"
 echo -e "${BLUE}================================================${NC}\n"
 
-# Function to check if port is in use
+# ── Helpers ───────────────────────────────────────────────────────
 check_port() {
     lsof -i :$1 >/dev/null 2>&1
 }
 
-# Function to wait for service
 wait_for_service() {
     local port=$1
     local service=$2
     local max_wait=30
-    
-    echo -n "Waiting for $service to be ready..."
+    echo -n "Waiting for $service..."
     for i in $(seq 1 $max_wait); do
         if check_port $port; then
             echo -e " ${GREEN}✓${NC}"
@@ -43,74 +41,83 @@ wait_for_service() {
     return 1
 }
 
-# Check if venv exists
+# ── Pre-flight ────────────────────────────────────────────────────
 if [ ! -d "$REPO_DIR/venv" ]; then
-    echo -e "${RED}✗ Virtual environment not found. Run ./scripts/setup.sh first${NC}"
+    echo -e "${RED}✗ venv not found. Run ./scripts/setup.sh first${NC}"
     exit 1
 fi
 
-# Check if already running
+if [ ! -f "$DATA_DIR/seaweedfs/weed" ]; then
+    echo -e "${RED}✗ SeaweedFS binary not found. Run ./scripts/setup.sh first${NC}"
+    exit 1
+fi
+
+# Force-clear stale PID file — don't block on it
 if [ -f "$PID_FILE" ]; then
-    echo -e "${YELLOW}⚠ Services may already be running${NC}"
-    echo -e "Run ${GREEN}./scripts/stop.sh${NC} first or check ${GREEN}./scripts/status.sh${NC}"
-    exit 1
+    echo -e "${YELLOW}⚠ Stale PID file found — clearing it${NC}"
+    rm -f "$PID_FILE"
 fi
 
-# Check for API keys
 if [ -z "$OPENROUTER_API_KEY" ]; then
-    echo -e "${YELLOW}⚠ Warning: OPENROUTER_API_KEY not set${NC}"
-    echo "Export it: export OPENROUTER_API_KEY='your-key'"
-    echo ""
+    echo -e "${YELLOW}⚠ OPENROUTER_API_KEY not set${NC}"
 fi
 
-# Activate virtual environment
-echo -e "${BLUE}[0/3] Activating Python virtual environment...${NC}"
+# ── Activate venv ─────────────────────────────────────────────────
+echo -e "${BLUE}[0/3] Activating virtual environment...${NC}"
 source "$REPO_DIR/venv/bin/activate"
-
-if [ -z "$VIRTUAL_ENV" ]; then
-    echo -e "${RED}✗ Failed to activate virtual environment${NC}"
-    exit 1
-fi
 echo -e "${GREEN}✓ Virtual environment active${NC}\n"
 
-# Initialize PID file
+# ── Error trap ────────────────────────────────────────────────────
 > "$PID_FILE"
 
-# Cleanup function for error handling
 cleanup_on_error() {
     echo -e "\n${RED}✗ Startup failed, cleaning up...${NC}"
     bash "$REPO_DIR/scripts/stop.sh" 2>/dev/null || true
+    rm -f "$PID_FILE"
     exit 1
 }
-
-# Set trap for errors
 trap cleanup_on_error ERR
 
-# 1. Start SeaweedFS
-echo -e "${BLUE}[1/3] Starting SeaweedFS (Master + Volume + Filer)...${NC}"
-cd "$DATA_DIR"
+# ── 1. SeaweedFS ──────────────────────────────────────────────────
+echo -e "${BLUE}[1/3] Starting SeaweedFS...${NC}"
 
-# Create filer directory if not exists
-mkdir -p ./seaweedfs/filerldb2
+mkdir -p "$DATA_DIR/seaweedfs/filerldb2" "$HOME/.seaweedfs"
 
-# Create filer config if not exists
-mkdir -p "$REPO_DIR/config"
-if [ ! -f "$REPO_DIR/config/filer.toml" ]; then
-    cat > "$REPO_DIR/config/filer.toml" << EOF
+# Write filer.toml with correct absolute paths every time
+cat > "$REPO_DIR/config/filer.toml" << EOF
 [leveldb2]
 enabled = true
 dir = "$DATA_DIR/seaweedfs/filerldb2"
 
-# Webhook notification for file events
 [notification.webhook]
 enabled = true
 url = "http://localhost:8000/webhook/seaweed"
 bearer_token = ""
 queue_size = 100
 EOF
-fi
 
-# Start SeaweedFS with correct syntax for Mac
+# Copy to every path SeaweedFS auto-discovers
+cp "$REPO_DIR/config/filer.toml" "$DATA_DIR/seaweedfs/filer.toml"
+cp "$REPO_DIR/config/filer.toml" "$HOME/.seaweedfs/filer.toml"
+
+echo -e "${GREEN}✓ filer.toml deployed${NC}"
+
+# notification.toml — webhook config
+cat > "$REPO_DIR/config/notification.toml" << EOF
+[notification.webhook]
+enabled = true
+endpoint = "http://localhost:8000/webhook/seaweed"
+bearer_token = ""
+queue_size = 100
+EOF
+
+cp "$REPO_DIR/config/notification.toml" "$DATA_DIR/seaweedfs/notification.toml"
+cp "$REPO_DIR/config/notification.toml" "$HOME/.seaweedfs/notification.toml"
+echo -e "${GREEN}✓ notification.toml deployed${NC}"
+
+# Launch from DATA_DIR so weed finds filer.toml in its working dir
+cd "$DATA_DIR"
+
 nohup ./seaweedfs/weed server \
     -dir=./seaweedfs \
     -master.port=9333 \
@@ -123,100 +130,87 @@ nohup ./seaweedfs/weed server \
 SEAWEED_PID=$!
 echo $SEAWEED_PID >> "$PID_FILE"
 
-# Wait for SeaweedFS services
 if ! wait_for_service 9333 "SeaweedFS Master"; then
-    echo -e "${RED}✗ SeaweedFS Master failed to start${NC}"
-    echo -e "\n${RED}Last 30 lines of log:${NC}"
+    echo -e "${RED}✗ SeaweedFS Master failed${NC}"
     tail -30 "$LOG_DIR/seaweedfs.log"
     cleanup_on_error
 fi
 
 if ! wait_for_service 8080 "SeaweedFS Volume"; then
-    echo -e "${RED}✗ SeaweedFS Volume failed to start${NC}"
-    echo -e "\n${RED}Last 30 lines of log:${NC}"
+    echo -e "${RED}✗ SeaweedFS Volume failed${NC}"
     tail -30 "$LOG_DIR/seaweedfs.log"
     cleanup_on_error
 fi
 
 if ! wait_for_service 8888 "SeaweedFS Filer"; then
-    echo -e "${RED}✗ SeaweedFS Filer failed to start${NC}"
-    echo -e "\n${RED}Last 30 lines of log:${NC}"
+    echo -e "${RED}✗ SeaweedFS Filer failed${NC}"
     tail -30 "$LOG_DIR/seaweedfs.log"
     cleanup_on_error
 fi
 
 echo -e "${GREEN}✓ SeaweedFS running (PID: $SEAWEED_PID)${NC}"
-echo -e "  - Master: :9333"
-echo -e "  - Volume: :8080"
-echo -e "  - Filer:  :8888\n"
+echo -e "  Master :9333  Volume :8080  Filer :8888\n"
 
-# Configure filer webhook (after filer is running)
-echo -e "${BLUE}Configuring filer webhook...${NC}"
-sleep 2
-
-# Copy filer config to the running filer
-curl -X POST "http://localhost:8888/etc/filer.conf" \
-    --data-binary @"$REPO_DIR/config/filer.toml" \
-    > /dev/null 2>&1 || echo -e "${YELLOW}⚠ Webhook config may need manual setup${NC}"
-
-echo -e "${GREEN}✓ Filer configured${NC}\n"
-
-# 2. Start FastAPI
-echo -e "${BLUE}[2/3] Starting FastAPI application...${NC}"
+# ── 2. FastAPI ────────────────────────────────────────────────────
+echo -e "${BLUE}[2/3] Starting FastAPI...${NC}"
 cd "$REPO_DIR"
 
-# Set environment variables
 export SEAWEED_MASTER="http://localhost:9333"
 export SEAWEED_VOLUME="http://localhost:8080"
 export SEAWEED_FILER="http://localhost:8888"
 export LANCEDB_PATH="$DATA_DIR/lancedb"
 
-# Start FastAPI with explicit python from venv
-nohup "$REPO_DIR/venv/bin/python" -u app/app_production.py > "$LOG_DIR/fastapi.log" 2>&1 &
+nohup "$REPO_DIR/venv/bin/python" -u app/main.py \
+    > "$LOG_DIR/fastapi.log" 2>&1 &
+
 FASTAPI_PID=$!
 echo $FASTAPI_PID >> "$PID_FILE"
 
 if ! wait_for_service 8000 "FastAPI"; then
-    echo -e "${RED}✗ FastAPI failed to start${NC}"
-    echo -e "${RED}Showing last 30 lines of log:${NC}"
+    echo -e "${RED}✗ FastAPI failed${NC}"
     tail -30 "$LOG_DIR/fastapi.log"
     cleanup_on_error
 fi
 
 echo -e "${GREEN}✓ FastAPI running (PID: $FASTAPI_PID)${NC}"
-echo -e "  - API: :8000\n"
+echo -e "  API :8000\n"
 
-# 3. Verify all services
-echo -e "${BLUE}[3/3] Verifying services...${NC}"
-
-# Health check
+# ── 3. Verify ─────────────────────────────────────────────────────
+echo -e "${BLUE}[3/3] Verifying...${NC}"
 sleep 2
-if curl -s http://localhost:8000/health > /dev/null 2>&1; then
+
+if curl -sf http://localhost:8000/health > /dev/null; then
     echo -e "${GREEN}✓ FastAPI health check passed${NC}"
 else
-    echo -e "${YELLOW}⚠ FastAPI health check failed (may need more time)${NC}"
+    echo -e "${YELLOW}⚠ FastAPI health check pending${NC}"
 fi
 
-# Display final status
+if grep -qi "notification\|webhook\|leveldb" "$LOG_DIR/seaweedfs.log" 2>/dev/null; then
+    echo -e "${GREEN}✓ filer.toml loaded by SeaweedFS${NC}"
+else
+    echo -e "${YELLOW}⚠ filer.toml not confirmed yet — check: tail -f $LOG_DIR/seaweedfs.log${NC}"
+fi
+
+# ── Done ──────────────────────────────────────────────────────────
 echo -e "\n${GREEN}================================================${NC}"
-echo -e "${GREEN}  All services started successfully!${NC}"
+echo -e "${GREEN}  All services started!${NC}"
 echo -e "${GREEN}================================================${NC}\n"
 
-echo -e "${BLUE}Service Access:${NC}"
-echo -e "  🌐 Web UI:        ${GREEN}http://localhost:8000${NC}"
-echo -e "  📊 SeaweedFS UI:  http://localhost:9333"
-echo -e "  📁 Filer UI:      http://localhost:8888"
+echo -e "${BLUE}Access:${NC}"
+echo -e "  🌐 Web UI:    ${GREEN}http://localhost:8000${NC}"
+echo -e "  📚 API Docs:  ${GREEN}http://localhost:8000/docs${NC}"
+echo -e "  📊 SeaweedFS: http://localhost:9333"
+echo -e "  📁 Filer:     http://localhost:8888"
 
-echo -e "\n${BLUE}Logs:${NC} $LOG_DIR"
-echo -e "  - seaweedfs.log"
-echo -e "  - fastapi.log"
+echo -e "\n${BLUE}Live logs:${NC}"
+echo -e "  tail -f $LOG_DIR/fastapi.log"
+echo -e "  tail -f $LOG_DIR/seaweedfs.log"
 
 echo -e "\n${BLUE}Management:${NC}"
-echo -e "  Status:  ${GREEN}./scripts/status.sh${NC}"
 echo -e "  Stop:    ${GREEN}./scripts/stop.sh${NC}"
+echo -e "  Status:  ${GREEN}./scripts/status.sh${NC}"
 echo -e "  Restart: ${GREEN}./scripts/restart.sh${NC}\n"
 
-echo -e "${BLUE}PIDs stored in:${NC} $PID_FILE"
 cat "$PID_FILE" | while read pid; do
     if ps -p $pid > /dev/null 2>&1; then
         echo -e "  ${GREEN}✓${NC} PID $pid running"

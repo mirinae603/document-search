@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Q&A</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #fff;
+            color: #111;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            padding: 16px 24px;
+            border-bottom: 1px solid #e5e5e5;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo { font-weight: 700; font-size: 15px; }
+        .model-tag { font-size: 11px; color: #888; }
+
+        .mode-toggle {
+            display: flex;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .mode-btn {
+            padding: 5px 14px;
+            border: none;
+            background: none;
+            font-size: 12px;
+            cursor: pointer;
+            color: #888;
+        }
+        .mode-btn.active { background: #111; color: #fff; }
+
+        .layout { display: flex; flex: 1; overflow: hidden; }
+
+        .sidebar {
+            width: 240px;
+            border-right: 1px solid #e5e5e5;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-title {
+            padding: 12px 16px;
+            font-size: 11px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid #e5e5e5;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .clear-btn {
+            background: none;
+            border: none;
+            font-size: 11px;
+            color: #aaa;
+            cursor: pointer;
+        }
+        .clear-btn:hover { color: #e00; }
+
+        .history { flex: 1; overflow-y: auto; }
+
+        .history-item {
+            padding: 10px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.1s;
+        }
+        .history-item:hover { background: #f9f9f9; }
+        .history-item.active { background: #f3f3f3; }
+
+        .h-q {
+            font-size: 12px;
+            color: #111;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .h-meta { font-size: 10px; color: #aaa; margin-top: 3px; display: flex; align-items: center; gap: 4px; }
+
+        .conf-dot {
+            display: inline-block;
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 28px;
+        }
+
+        .welcome {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: #aaa;
+            text-align: center;
+        }
+        .welcome h2 { font-size: 18px; color: #111; font-weight: 600; }
+        .welcome p { font-size: 13px; max-width: 360px; }
+
+        .pills { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 4px; }
+        .pill {
+            border: 1px solid #ddd;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            color: #555;
+            transition: all 0.15s;
+        }
+        .pill:hover { border-color: #111; color: #111; }
+
+        .msg-q {
+            font-size: 14px;
+            font-weight: 600;
+            color: #111;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .mode-pill {
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+            color: #888;
+            font-weight: 400;
+        }
+
+        .answer-text {
+            font-size: 14px;
+            line-height: 1.75;
+            color: #222;
+            margin-top: 12px;
+        }
+
+        .cite-badge {
+            display: inline-block;
+            background: #f3f3f3;
+            border: 1px solid #ddd;
+            padding: 0px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #555;
+        }
+
+        .conf-section {
+            margin-top: 16px;
+            padding: 14px 16px;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            background: #fafafa;
+        }
+
+        .conf-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .conf-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.04em; }
+        .conf-score { font-size: 13px; font-weight: 700; }
+
+        .bar-bg { height: 4px; background: #e5e5e5; border-radius: 2px; }
+        .bar-fill { height: 4px; border-radius: 2px; background: #111; transition: width 0.6s ease; }
+
+        .sub-bars { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+        .sub-label { font-size: 10px; color: #aaa; margin-bottom: 3px; display: flex; justify-content: space-between; }
+
+        .general-note {
+            margin-top: 16px;
+            padding: 10px 14px;
+            border: 1px solid #e5e5e5;
+            border-radius: 8px;
+            background: #fafafa;
+            font-size: 12px;
+            color: #aaa;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tabs { margin-top: 16px; border: 1px solid #e5e5e5; border-radius: 8px; overflow: hidden; }
+        .tab-bar { display: flex; border-bottom: 1px solid #e5e5e5; background: #fafafa; overflow-x: auto; }
+
+        .tab {
+            padding: 8px 14px;
+            font-size: 12px;
+            cursor: pointer;
+            color: #888;
+            border-bottom: 2px solid transparent;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .tab:hover { color: #111; }
+        .tab.active { color: #111; border-bottom-color: #111; background: #fff; }
+
+        .tab-count {
+            font-size: 10px;
+            background: #e5e5e5;
+            padding: 1px 5px;
+            border-radius: 8px;
+            color: #666;
+        }
+
+        .tab-pane { display: none; padding: 14px 16px; }
+        .tab-pane.active { display: block; }
+
+        .source-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+            gap: 12px;
+        }
+        .source-row:last-child { border-bottom: none; }
+        .source-name { font-size: 13px; font-weight: 500; color: #111; }
+        .source-preview { font-size: 11px; color: #888; margin-top: 3px; line-height: 1.4; }
+        .source-meta { font-size: 10px; color: #aaa; margin-top: 3px; }
+
+        .badges { display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0; }
+        .badge {
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            color: #555;
+            white-space: nowrap;
+        }
+
+        .preview-btn {
+            font-size: 10px;
+            padding: 3px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: none;
+            cursor: pointer;
+            color: #555;
+            margin-top: 5px;
+        }
+        .preview-btn:hover { border-color: #111; color: #111; }
+
+        .excerpt-block {
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .excerpt-block:last-child { border-bottom: none; }
+        .excerpt-quote {
+            font-size: 13px;
+            color: #333;
+            font-style: italic;
+            line-height: 1.6;
+            border-left: 3px solid #ddd;
+            padding-left: 12px;
+        }
+        .excerpt-meta { font-size: 10px; color: #aaa; margin-top: 5px; }
+
+        .cit-row {
+            display: flex;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+            align-items: flex-start;
+        }
+        .cit-row:last-child { border-bottom: none; }
+        .cit-num {
+            width: 18px; height: 18px;
+            border: 1px solid #ddd;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: #555;
+            flex-shrink: 0;
+        }
+        .cit-body { flex: 1; }
+        .cit-from { font-size: 10px; color: #888; margin-bottom: 3px; }
+        .cit-sentence { font-size: 12px; color: #333; line-height: 1.5; }
+
+        .fup {
+            padding: 9px 12px;
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            margin-bottom: 6px;
+            color: #444;
+            transition: all 0.15s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .fup:hover { border-color: #111; color: #111; }
+        .fup-arr { color: #bbb; font-size: 12px; }
+
+        .analysis-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .a-card { padding: 10px 12px; border: 1px solid #e5e5e5; border-radius: 6px; }
+        .a-label { font-size: 10px; color: #aaa; text-transform: uppercase; margin-bottom: 4px; }
+        .a-val { font-size: 13px; font-weight: 600; color: #111; }
+        .tag { display: inline-block; font-size: 10px; background: #f3f3f3; padding: 2px 6px; border-radius: 4px; margin-right: 3px; color: #555; }
+
+        .meta-strip {
+            display: flex;
+            gap: 16px;
+            font-size: 11px;
+            color: #aaa;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #f0f0f0;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .meta-val { color: #555; font-weight: 500; }
+        .meta-mode {
+            margin-left: auto;
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+            color: #888;
+        }
+
+        .input-area {
+            padding: 16px 24px;
+            border-top: 1px solid #e5e5e5;
+        }
+
+        .input-opts {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 10px;
+            align-items: center;
+            font-size: 12px;
+            color: #888;
+            flex-wrap: wrap;
+        }
+
+        .opt-select {
+            border: 1px solid #ddd;
+            background: #fff;
+            color: #111;
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .toggle {
+            width: 30px; height: 16px;
+            background: #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            position: relative;
+            transition: background 0.2s;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+        .toggle.on { background: #111; }
+        .toggle::after {
+            content: '';
+            position: absolute;
+            width: 12px; height: 12px;
+            background: white;
+            border-radius: 50%;
+            top: 2px; left: 2px;
+            transition: left 0.2s;
+        }
+        .toggle.on::after { left: 16px; }
+
+        .opt-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: opacity 0.2s;
+        }
+
+        .input-row { display: flex; gap: 10px; }
+
+        textarea {
+            flex: 1;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 14px;
+            resize: none;
+            outline: none;
+            font-family: inherit;
+            color: #111;
+            min-height: 44px;
+            max-height: 120px;
+            transition: border-color 0.2s;
+        }
+        textarea:focus { border-color: #111; }
+        textarea::placeholder { color: #bbb; }
+
+        .send-btn {
+            width: 44px; height: 44px;
+            background: #111;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            flex-shrink: 0;
+        }
+        .send-btn:hover { opacity: 0.8; }
+        .send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: #888;
+        }
+        .spinner {
+            width: 16px; height: 16px;
+            border: 2px solid #ddd;
+            border-top-color: #111;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .empty-state { font-size: 12px; color: #aaa; }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <span class="logo">Q&A</span>
+    <div class="mode-toggle">
+        <button class="mode-btn active" onclick="setMode('ask',this)">Ask</button>
+        <button class="mode-btn" onclick="setMode('chat',this)">Chat</button>
+    </div>
+    <span class="model-tag" id="modelTag">—</span>
+</header>
+
+<div class="layout">
+
+    <div class="sidebar">
+        <div class="sidebar-title">
+            History
+            <button class="clear-btn" onclick="clearAll()">Clear</button>
+        </div>
+        <div class="history" id="history">
+            <div style="padding:20px;font-size:12px;color:#bbb;text-align:center">No questions yet</div>
+        </div>
+    </div>
+
+    <div class="main">
+        <div class="messages" id="messages">
+            <div class="welcome" id="welcome">
+                <h2>Ask your documents</h2>
+                <p>Get answers with citations, confidence scores, and source excerpts from your indexed documents — or ask anything in General mode.</p>
+                <div class="pills">
+                    <span class="pill" onclick="setQ(this)">What are the main topics?</span>
+                    <span class="pill" onclick="setQ(this)">Summarize the key findings</span>
+                    <span class="pill" onclick="setQ(this)">What problems are mentioned?</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-area">
+            <div class="input-opts">
+
+                <!-- Answer mode -->
+                <span style="display:flex;align-items:center;gap:6px;">
+                    Mode
+                    <div class="mode-toggle" style="margin-left:4px">
+                        <button class="mode-btn active" id="modeDoc" onclick="setAnswerMode('document',this)">📄 Document</button>
+                        <button class="mode-btn" id="modeGen" onclick="setAnswerMode('general',this)">🌐 General</button>
+                    </div>
+                </span>
+
+                <span class="opt-group" id="grpTopK">
+                    Sources
+                    <select class="opt-select" id="topK">
+                        <option value="3">3</option>
+                        <option value="5" selected>5</option>
+                        <option value="8">8</option>
+                    </select>
+                </span>
+
+                <span class="opt-group" id="grpExc">
+                    Excerpts
+                    <div class="toggle on" id="togExc" onclick="this.classList.toggle('on')"></div>
+                </span>
+
+                <span class="opt-group" id="grpSrc">
+                    Sources panel
+                    <div class="toggle on" id="togSrc" onclick="this.classList.toggle('on')"></div>
+                </span>
+
+            </div>
+            <div class="input-row">
+                <textarea id="qInput"
+                    placeholder="Ask anything…"
+                    rows="1"
+                    onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"
+                    oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"></textarea>
+                <button class="send-btn" id="sendBtn" onclick="send()">↑</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+let mode = 'ask';
+let answerMode = 'document';
+let hist = [];
+let convMsgs = [];
+
+// ─── MODE SETTERS ────────────────────────────────────────────────
+
+function setMode(m, btn) {
+    mode = m;
+    document.querySelectorAll('header .mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (m === 'ask') convMsgs = [];
+}
+
+function setAnswerMode(m) {
+    answerMode = m;
+    document.getElementById('modeDoc').classList.toggle('active', m === 'document');
+    document.getElementById('modeGen').classList.toggle('active', m === 'general');
+
+    const isDoc = m === 'document';
+    document.getElementById('grpTopK').style.opacity = isDoc ? '1' : '0.3';
+    document.getElementById('grpExc').style.opacity  = isDoc ? '1' : '0.3';
+    document.getElementById('grpSrc').style.opacity  = isDoc ? '1' : '0.3';
+
+    document.getElementById('qInput').placeholder = isDoc
+        ? 'Ask anything about your documents…'
+        : 'Ask anything…';
+}
+
+// ─── QUICK EXAMPLES ──────────────────────────────────────────────
+
+function setQ(el) {
+    document.getElementById('qInput').value = el.textContent.trim();
+    send();
+}
+
+// ─── SEND ────────────────────────────────────────────────────────
+
+async function send() {
+    const inp = document.getElementById('qInput');
+    const q = inp.value.trim();
+    if (!q) return;
+
+    const topK   = document.getElementById('topK').value;
+    const incExc = document.getElementById('togExc').classList.contains('on');
+    const incSrc = document.getElementById('togSrc').classList.contains('on');
+
+    const w = document.getElementById('welcome');
+    if (w) w.remove();
+
+    addMsg(`<div class="msg-q">${esc(q)}<span class="mode-pill">${answerMode}</span></div>`);
+    inp.value = '';
+    inp.style.height = 'auto';
+
+    const lid = 'l' + Date.now();
+    addMsg(`<div class="loading" id="${lid}"><div class="spinner"></div>${answerMode === 'general' ? 'Generating answer…' : 'Searching documents and generating…'}</div>`);
+    document.getElementById('sendBtn').disabled = true;
+
+    try {
+    let data;
+
+    if (mode === 'ask') {
+        const p = new URLSearchParams({
+            question: q,
+            top_k: topK,
+            return_sources: incSrc,
+            include_excerpts: incExc,
+            mode: answerMode
+        });
+        const r = await fetch(`${API}/qa/ask?${p}`, { method: 'POST' });
+        if (!r.ok) {
+            const errBody = await r.json().catch(() => null);
+            // FastAPI returns { detail: "..." } for HTTP errors
+            const msg = errBody?.detail
+                ? (typeof errBody.detail === 'string' ? errBody.detail : JSON.stringify(errBody.detail))
+                : `HTTP ${r.status}`;
+            throw new Error(msg);
+        }
+        data = await r.json();
+
+    } else {
+        convMsgs.push({ role: 'user', content: q });
+        const r = await fetch(`${API}/qa/conversation?top_k=${topK}&mode=${answerMode}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(convMsgs)
+        });
+        if (!r.ok) {
+            const errBody = await r.json().catch(() => null);
+            const msg = errBody?.detail
+                ? (typeof errBody.detail === 'string' ? errBody.detail : JSON.stringify(errBody.detail))
+                : `HTTP ${r.status}`;
+            throw new Error(msg);
+        }
+        data = await r.json();
+        if (data.error) throw new Error(data.error);
+        const last = data.messages?.at(-1);
+        if (last) { convMsgs.push(last); data.answer = last.content; }
+    }
+
+    document.getElementById(lid)?.remove();
+    render(q, data);
+    addToHistory(q, data);
+    if (data.metadata?.model) document.getElementById('modelTag').textContent = data.metadata.model;
+
+} catch(e) {
+    document.getElementById(lid)?.remove();
+    // Always convert to string safely
+    const msg = e instanceof Error ? e.message : JSON.stringify(e);
+    addMsg(`<div style="font-size:13px;color:#e00;padding:8px 0">⚠ ${esc(msg)}</div>`);
+}
+
+
+    document.getElementById('sendBtn').disabled = false;
+}
+
+// ─── RENDER ──────────────────────────────────────────────────────
+
+function render(q, d) {
+    const isGeneral = d.mode === 'general';
+    const conf   = d.confidence || null;          // null in general mode
+    const meta   = d.metadata  || {};
+    const cits   = d.citations || {};
+    const excs   = d.excerpts  || [];
+    const srcs   = d.sources   || [];
+    const ana    = d.answer_analysis || {};
+    const fups   = d.follow_up_questions || [];
+    const struct = ana.answer_structure || {};
+
+    const tid = 't' + Date.now();
+
+    // ── Confidence section (only for document mode)
+    let confHtml = '';
+    if (!isGeneral && conf) {
+        const cLevel = conf.confidence_level || 'medium';
+        const cScore = conf.overall_confidence || 0;
+        const cColor = cLevel === 'high' ? '#22c55e' : cLevel === 'medium' ? '#f59e0b' : '#e00';
+
+        const subBars = [
+            ['Doc Coverage',    conf.document_coverage_score],
+            ['Excerpt Quality', conf.excerpt_quality_score],
+            ['Citation Density',conf.citation_density_score],
+            ['Answer Length',   conf.answer_length_score]
+        ].map(([l, v]) => `
+            <div>
+                <div class="sub-label"><span>${l}</span><span>${(v||0).toFixed(0)}%</span></div>
+                <div class="bar-bg"><div class="bar-fill" style="width:${v||0}%"></div></div>
+            </div>
+        `).join('');
+
+        confHtml = `
+            <div class="conf-section">
+                <div class="conf-row">
+                    <span class="conf-label">Confidence</span>
+                    <span class="conf-score" style="color:${cColor}">${cLevel} · ${cScore}%</span>
+                </div>
+                <div class="bar-bg"><div class="bar-fill" style="width:${cScore}%"></div></div>
+                <div class="sub-bars" style="margin-top:10px">${subBars}</div>
+            </div>`;
+    } else if (isGeneral) {
+        confHtml = `<div class="general-note">
+    🌐 Smart mode — answers from general knowledge${srcs.length ? `, enriched with ${srcs.length} document${srcs.length > 1 ? 's' : ''}` : ', no relevant documents found'}
+</div>`;
+    }
+
+    // ── Sources
+    const srcHtml = srcs.length ? srcs.map(s => `
+        <div class="source-row">
+            <div style="flex:1;min-width:0">
+                <div class="source-name">📄 ${esc(s.filename)}</div>
+                <div class="source-preview">${esc((s.text_preview||'').substring(0,140))}…</div>
+                <div class="source-meta">
+                    ${(s.full_text_length||0).toLocaleString()} chars ·
+                    cited ${s.times_cited_in_answer||0}× ·
+                    ${s.indexed_at ? new Date(s.indexed_at).toLocaleDateString() : '—'}
+                </div>
+                <button class="preview-btn" onclick="window.open('${API}${esc(s.preview_url||'')}','_blank')">Open ↗</button>
+            </div>
+            <div class="badges">
+                <span class="badge">Relevance ${((s.relevance_score||0)*100).toFixed(1)}%</span>
+                <span class="badge">Cited ${s.times_cited_in_answer||0}×</span>
+            </div>
+        </div>
+    `).join('') : `<div class="empty-state">${isGeneral ? 'No documents used in general mode' : 'No sources returned'}</div>`;
+
+    // ── Excerpts
+    const excHtml = excs.length ? excs.map(e => `
+        <div class="excerpt-block">
+            <div class="excerpt-quote">${esc(e.text)}</div>
+            <div class="excerpt-meta">
+                📄 ${esc(e.filename)} · sentence #${e.sentence_index} · pos ${e.char_position} · ${((e.relevance_score||0)*100).toFixed(0)}% match · ${e.matched_terms} terms
+            </div>
+            ${e.context_before ? `<div style="font-size:10px;color:#bbb;margin-top:3px">…${esc(e.context_before.trim())} <b>[↑]</b> ${esc((e.context_after||'').trim())}…</div>` : ''}
+        </div>
+    `).join('') : `<div class="empty-state">${isGeneral ? 'No excerpts in general mode' : 'No excerpts found'}</div>`;
+
+    // ── Citations
+    const citHtml = cits.citation_details?.length ? `
+        <div style="font-size:11px;color:#aaa;margin-bottom:8px">
+            ${cits.total_citations} citation${cits.total_citations !== 1 ? 's' : ''} · ${cits.unique_documents_cited} document${cits.unique_documents_cited !== 1 ? 's' : ''}
+        </div>
+        ${cits.citation_details.map(c => `
+            <div class="cit-row">
+                <div class="cit-num">${c.citation_index}</div>
+                <div class="cit-body">
+                    <div class="cit-from">📄 ${esc(c.filename)} · char ${c.position_in_answer}</div>
+                    <div class="cit-sentence">${esc(c.cited_sentence)}</div>
+                </div>
+            </div>
+        `).join('')}
+    ` : `<div class="empty-state">${isGeneral ? 'No citations in general mode' : 'No citations parsed'}</div>`;
+
+    // ── Follow-ups
+    const fupHtml = fups.length ? fups.map(f => `
+        <div class="fup" onclick="askFup(${JSON.stringify(f)})">
+            <span>${esc(f)}</span><span class="fup-arr">→</span>
+        </div>
+    `).join('') : '<div class="empty-state">No suggestions</div>';
+
+    // ── Analysis
+    const anaHtml = `
+        <div class="analysis-grid">
+            <div class="a-card">
+                <div class="a-label">Question Type</div>
+                <div class="a-val">${(ana.question_types||['general']).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+            </div>
+            <div class="a-card">
+                <div class="a-label">Answer Chars</div>
+                <div class="a-val">${(conf?.answer_length_chars || (d.answer||'').length).toLocaleString()}</div>
+            </div>
+            <div class="a-card">
+                <div class="a-label">Structured</div>
+                <div class="a-val" style="color:${struct.is_structured?'#22c55e':'#aaa'}">${struct.is_structured?'Yes':'No'}</div>
+            </div>
+            <div class="a-card">
+                <div class="a-label">Has Comparison</div>
+                <div class="a-val" style="color:${struct.has_comparison?'#22c55e':'#aaa'}">${struct.has_comparison?'Yes':'No'}</div>
+            </div>
+            <div class="a-card">
+                <div class="a-label">Citations Found</div>
+                <div class="a-val">${conf?.citations_found ?? 0}</div>
+            </div>
+            <div class="a-card">
+                <div class="a-label">Processing</div>
+                <div class="a-val">${meta.processing_time_seconds||0}s</div>
+            </div>
+        </div>
+    `;
+
+    const html = `
+        <div>
+            <div class="answer-text">${mdToHtml(d.answer||'No answer returned.')}</div>
+
+            ${confHtml}
+
+            <div class="tabs">
+                <div class="tab-bar">
+                    <div class="tab active" onclick="stab('${tid}','src',this)">Sources <span class="tab-count">${srcs.length}</span></div>
+                    <div class="tab" onclick="stab('${tid}','exc',this)">Excerpts <span class="tab-count">${excs.length}</span></div>
+                    <div class="tab" onclick="stab('${tid}','cit',this)">Citations <span class="tab-count">${cits.total_citations||0}</span></div>
+                    <div class="tab" onclick="stab('${tid}','fup',this)">Follow-ups <span class="tab-count">${fups.length}</span></div>
+                    <div class="tab" onclick="stab('${tid}','ana',this)">Analysis</div>
+                </div>
+                <div id="${tid}-src" class="tab-pane active">${srcHtml}</div>
+                <div id="${tid}-exc" class="tab-pane">${excHtml}</div>
+                <div id="${tid}-cit" class="tab-pane">${citHtml}</div>
+                <div id="${tid}-fup" class="tab-pane">${fupHtml}</div>
+                <div id="${tid}-ana" class="tab-pane">${anaHtml}</div>
+            </div>
+
+            <div class="meta-strip">
+                <span>${meta.documents_retrieved||0} docs retrieved · <span class="meta-val">${meta.documents_cited||0} cited</span></span>
+                <span>Tokens: <span class="meta-val">${meta.tokens_used||0}</span></span>
+                <span>Search: <span class="meta-val">${meta.search_type||'—'}</span></span>
+                <span>Model: <span class="meta-val">${meta.model||'—'}</span></span>
+                <span class="meta-mode">${d.mode||answerMode}</span>
+            </div>
+        </div>
+    `;
+
+    addMsg(html);
+    document.getElementById('messages').scrollTop = 99999;
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────────
+
+function stab(tid, name, btn) {
+    ['src','exc','cit','fup','ana'].forEach(t => document.getElementById(`${tid}-${t}`)?.classList.remove('active'));
+    btn.closest('.tab-bar').querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    document.getElementById(`${tid}-${name}`)?.classList.add('active');
+    btn.classList.add('active');
+}
+
+function askFup(q) {
+    document.getElementById('qInput').value = q;
+    send();
+}
+
+function addMsg(html) {
+    const m = document.getElementById('messages');
+    const d = document.createElement('div');
+    d.innerHTML = html;
+    m.appendChild(d);
+    m.scrollTop = 99999;
+}
+
+function addToHistory(q, data) {
+    hist.unshift({ q, data });
+    const h = document.getElementById('history');
+    h.innerHTML = hist.map((item, i) => {
+        const isGen = item.data.mode === 'general';
+        const conf  = item.data.confidence || null;
+        const level = conf?.confidence_level || (isGen ? 'general' : 'unknown');
+        const score = conf?.overall_confidence || 0;
+        const color = level === 'high' ? '#22c55e' : level === 'medium' ? '#f59e0b' : level === 'general' ? '#888' : '#e00';
+        const label = isGen ? 'general' : `${level} ${score}%`;
+        return `
+            <div class="history-item ${i===0?'active':''}" onclick="loadHist(${i})">
+                <div class="h-q">${esc(item.q)}</div>
+                <div class="h-meta">
+                    <span class="conf-dot" style="background:${color}"></span>
+                    ${label} · ${item.data.metadata?.tokens_used||0} tok
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function loadHist(i) {
+    document.querySelectorAll('.history-item').forEach((el,j) => el.classList.toggle('active', j===i));
+    render(hist[i].q, hist[i].data);
+}
+
+function clearAll() {
+    hist = []; convMsgs = [];
+    document.getElementById('history').innerHTML = '<div style="padding:20px;font-size:12px;color:#bbb;text-align:center">No questions yet</div>';
+    document.getElementById('messages').innerHTML = `
+        <div class="welcome" id="welcome">
+            <h2>Ask your documents</h2>
+            <p>Get answers with citations, confidence scores, and source excerpts — or ask anything in General mode.</p>
+            <div class="pills">
+                <span class="pill" onclick="setQ(this)">What are the main topics?</span>
+                <span class="pill" onclick="setQ(this)">Summarize the key findings</span>
+                <span class="pill" onclick="setQ(this)">What problems are mentioned?</span>
+            </div>
+        </div>`;
+}
+
+function mdToHtml(t) {
+    return String(t)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g,'<em>$1</em>')
+        .replace(/`(.*?)`/g,'<code style="background:#f3f3f3;padding:1px 5px;border-radius:3px;font-size:12px">$1</code>')
+        .replace(/\[Document (\d+): ([^\]]+)\]/g,'<span class="cite-badge">Doc $1: $2</span>')
+        .replace(/\n\n/g,'</p><p style="margin-top:10px">').replace(/\n/g,'<br>');
+}
+
+function esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
