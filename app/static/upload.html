@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Upload</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: monospace; font-size: 12px; background: #1a1a1a; color: #ddd; display: flex; flex-direction: column; height: 100vh; }
+
+  header { padding: 10px 14px; border-bottom: 1px solid #333; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  header h1 { font-size: 11px; letter-spacing: 1px; color: #aaa; }
+  #cls { background: none; border: none; color: #555; font-size: 16px; cursor: pointer; padding: 0; }
+  #cls:hover { color: #ddd; background: none; }
+
+  main { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+
+  #dz { border: 1px dashed #333; padding: 22px; text-align: center; cursor: pointer; color: #444; font-size: 11px; transition: all .2s; }
+  #dz:hover, #dz.over { border-color: #3b82f6; color: #3b82f6; background: #0d1c2e; }
+  #dz .icon { font-size: 20px; margin-bottom: 5px; }
+  #dz small { font-size: 9px; color: #333; display: block; margin-top: 3px; }
+
+  #file-list { display: flex; flex-direction: column; gap: 5px; }
+  .fi { background: #111; border: 1px solid #222; padding: 6px 10px; display: flex; align-items: center; gap: 8px; }
+  .fi-n { flex: 1; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fi-s { font-size: 10px; color: #555; white-space: nowrap; }
+  .fi-r { background: none; border: none; color: #555; cursor: pointer; font-size: 13px; padding: 0; }
+  .fi-r:hover { color: #ef4444; background: none; }
+
+  /* Source type — the ONLY metadata user sets */
+  #src-row { display: flex; align-items: center; gap: 10px; padding: 10px; background: #111; border: 1px solid #222; }
+  #src-row label { font-size: 10px; color: #555; white-space: nowrap; }
+  #src-row .chips { display: flex; gap: 6px; }
+  .sc { font-size: 10px; padding: 4px 10px; border-radius: 2px; cursor: pointer; background: #222; color: #666; border: 1px solid #333; font-family: monospace; }
+  .sc:hover { color: #aaa; }
+  .sc.on { background: #1d3a5e; color: #3b82f6; border-color: #3b82f6; }
+
+  /* Progress */
+  #prog { display: none; flex-direction: column; gap: 6px; }
+  .pi { display: flex; align-items: center; gap: 8px; font-size: 10px; }
+  .pi-n { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #aaa; }
+  .bw { width: 70px; height: 3px; background: #222; border-radius: 2px; }
+  .bar { height: 3px; background: #3b82f6; border-radius: 2px; width: 0; transition: width .3s; }
+  .bar.ok  { background: #22c55e; width: 100% !important; }
+  .bar.err { background: #ef4444; }
+  .pi-s { font-size: 9px; color: #555; white-space: nowrap; }
+  .pi-s.ok  { color: #22c55e; }
+  .pi-s.err { color: #ef4444; }
+
+  footer { padding: 10px 14px; border-top: 1px solid #333; display: flex; gap: 8px; justify-content: flex-end; flex-shrink: 0; }
+  .ghost { background: transparent; color: #555; border: 1px solid #333; }
+  .ghost:hover { color: #aaa; border-color: #555; background: transparent; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>UPLOAD DOCUMENT</h1>
+  <button id="cls" onclick="close_()">✕</button>
+</header>
+
+<main>
+  <!-- Drop zone -->
+  <div id="dz" onclick="document.getElementById('fi').click()"
+       ondragover="dzo(event)" ondragleave="dzl()" ondrop="dzd(event)">
+    <div class="icon">📄</div>
+    <div>Drop files or click to browse</div>
+    <small>PDF · DOCX · TXT · XLSX</small>
+  </div>
+  <input type="file" id="fi" multiple accept=".pdf,.docx,.txt,.xlsx"
+         style="display:none" onchange="picked(this.files)">
+
+  <div id="file-list"></div>
+
+  <!-- Source type chips — only user-set metadata -->
+<div id="src-row" style="display:none">
+  <label>SOURCE TYPE</label>
+  <input 
+    type="text" 
+    id="src-input" 
+    value="uploaded"
+    placeholder="e.g. uploaded, internal, client-acme, q1-audit…"
+    style="flex:1; background:#111; border:1px solid #333; color:#ddd; padding:5px 8px; font-family:monospace; font-size:11px;"
+  >
+</div>
+
+  <!-- Progress bars -->
+  <div id="prog"></div>
+</main>
+
+<footer>
+  <button class="ghost" onclick="close_()">CANCEL</button>
+  <button id="sub" onclick="submit()" disabled>UPLOAD</button>
+</footer>
+
+<script>
+const U = { files:[], source_type:'uploaded' };
+
+function close_() { try{ parent.closeUpload(); }catch(e){ window.close(); } }
+
+function dzo(e){ e.preventDefault(); document.getElementById('dz').classList.add('over'); }
+function dzl(){ document.getElementById('dz').classList.remove('over'); }
+function dzd(e){ e.preventDefault(); dzl(); picked(e.dataTransfer.files); }
+
+function picked(list){
+  Array.from(list).forEach(f => {
+    if (!U.files.find(x => x.name===f.name && x.size===f.size)) U.files.push(f);
+  });
+  render();
+}
+
+function render(){
+  document.getElementById('file-list').innerHTML = U.files.map((f,i)=>`
+    <div class="fi">
+      <span>${icon(f.name)}</span>
+      <span class="fi-n">${esc(f.name)}</span>
+      <span class="fi-s">${sz(f.size)}</span>
+      <button class="fi-r" onclick="rm(${i})">✕</button>
+    </div>`).join('');
+  const hasFiles = U.files.length > 0;
+  document.getElementById('src-row').style.display = hasFiles ? 'flex' : 'none';
+  document.getElementById('sub').disabled = !hasFiles;
+}
+
+function rm(i){ U.files.splice(i,1); render(); }
+
+function srcPick(btn){
+  document.querySelectorAll('.sc').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  U.source_type = btn.dataset.v;
+}
+
+async function submit(){
+  if (!U.files.length) return;
+  document.getElementById('sub').disabled = true;
+
+  const prog = document.getElementById('prog');
+  prog.style.display = 'flex';
+  prog.innerHTML = U.files.map((_,i)=>`
+    <div class="pi">
+      <span class="pi-n">${esc(U.files[i].name)}</span>
+      <div class="bw"><div class="bar" id="pb${i}"></div></div>
+      <span class="pi-s" id="ps${i}">waiting…</span>
+    </div>`).join('');
+
+  let anyErr = false;
+  for (let i=0; i<U.files.length; i++){
+    const bar=document.getElementById('pb'+i), st=document.getElementById('ps'+i);
+    st.textContent='uploading…'; bar.style.width='50%';
+    try{
+      const fd=new FormData();
+      fd.append('file', U.files[i]);
+      // source_type sent as form field — add to your /upload route: source_type: str = Form("uploaded")
+      fd.append('source_type', document.getElementById('src-input').value.trim() || 'uploaded');
+      bar.style.width='80%';
+      const r=await fetch('/upload',{method:'POST',body:fd});
+      if(!r.ok) throw new Error((await r.json().catch(()=>({detail:r.statusText}))).detail);
+      bar.classList.add('ok'); st.textContent='✓ done'; st.className='pi-s ok';
+    }catch(e){
+      bar.classList.add('err'); st.textContent='✗ '+e.message; st.className='pi-s err'; anyErr=true;
+    }
+  }
+
+  document.querySelector('footer').innerHTML = anyErr
+    ? `<span style="color:#ef4444;font-size:10px;flex:1">Some uploads failed</span><button class="ghost" onclick="close_()">CLOSE</button>`
+    : `<span style="color:#22c55e;font-size:10px;flex:1">Done — indexing in background</span><button onclick="close_()">CLOSE</button>`;
+}
+
+function icon(n){ return {pdf:'📕',docx:'📘',doc:'📘',txt:'📄',xlsx:'📗',xls:'📗'}[n.split('.').pop().toLowerCase()]||'📄'; }
+function sz(b){ return b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB'; }
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+</body>
+</html>

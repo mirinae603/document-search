@@ -1,0 +1,38 @@
+# Embedding Configuration
+embedding:
+  provider: "openrouter"  # Options: openrouter, local, sentence-transformers
+  
+  openrouter:
+    api_key: ""
+    model: "openai/text-embedding-3-small"  
+    base_url: "https://openrouter.ai/api/v1"
+    dimensions: 1536
+  
+  local:
+    model: "sentence-transformers/all-MiniLM-L6-v2"
+    device: "cpu"
+
+# Reranker Configuration
+reranker:
+  provider: "jina"  # Options: jina, cohere, none
+  
+  jina:
+    api_key: "jina_42f82a6c3a204bcbb7d0bd111528258eGYIwkN4igW9wYXWg9KFr7eyjVtN-"
+    model: "jina-reranker-v2-base-multilingual"
+    top_n: 10
+  
+  cohere:
+    api_key: "${COHERE_API_KEY}"
+    model: "rerank-multilingual-v3.0"
+    top_n: 10
+
+# SeaweedFS Configuration
+seaweedfs:
+  master_url: "http://localhost:9333"
+  volume_url: "http://localhost:8080"
+  filer_url: "http://localhost:8888"
+
+# LanceDB Configuration
+lancedb:
+  path: "./data/lancedb"
+  table_name: "documents"

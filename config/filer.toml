@@ -1,0 +1,9 @@
+[leveldb2]
+enabled = true
+dir = "/mnt/d/cerrado/document-search-feature-search-qa-final-draft/data/seaweedfs/filerldb2"
+
+[notification.webhook]
+enabled = true
+url = "http://localhost:8000/webhook/seaweed"
+bearer_token = ""
+queue_size = 100
