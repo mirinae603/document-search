@@ -19,8 +19,8 @@ QA_MODEL            = os.getenv("QA_MODEL",             LLM_MODEL)
 OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL",  "https://openrouter.ai/api/v1")
 
 # ── Chunking ──────────────────────────────────────────────────────────────────
-CHUNK_SIZE    = int(os.getenv("CHUNK_SIZE",    "1200"))
-CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "100"))
+CHUNK_SIZE    = int(os.getenv("CHUNK_SIZE",    "500"))
+CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "50"))
 
 # ── Reranker ──────────────────────────────────────────────────────────────────
 RERANKER_CONFIG_PATH = os.getenv("RERANKER_CONFIG_PATH", "./config/config.yaml")

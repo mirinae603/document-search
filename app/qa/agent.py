@@ -17,10 +17,10 @@ logger = logging.getLogger(__name__)
 _store    = None
 _embedder = None
 
-HIGH_CONF             = float(os.getenv("HIGH_CONF",           "0.75"))
-LOW_CONF              = float(os.getenv("LOW_CONF",            "0.55"))
-QA_MAX_CONTEXT_CHUNKS = int(os.getenv("QA_MAX_CONTEXT_CHUNKS", "12"))
-DATASET_MAX_CHUNKS    = int(os.getenv("DATASET_MAX_CHUNKS",    "20"))
+HIGH_CONF             = float(os.getenv("HIGH_CONF",           "0.40"))
+LOW_CONF              = float(os.getenv("LOW_CONF",            "0.20"))
+QA_MAX_CONTEXT_CHUNKS = int(os.getenv("QA_MAX_CONTEXT_CHUNKS", "30"))
+DATASET_MAX_CHUNKS    = int(os.getenv("DATASET_MAX_CHUNKS",    "40"))
 CHAT_MODEL            = os.getenv("QA_MODEL", "openai/gpt-4o-mini")
 
 _META_INTENTS = [
@@ -87,16 +87,17 @@ def _dist_to_score(row: dict) -> float:
     d = row.get("_distance", 1.0)
     return round(max(0.0, min(1.0, 1.0 - float(d or 1.0))), 4)
 
-def _row_to_chunk(row: dict, score: float) -> dict:
+def _row_to_chunk(row: dict, score: float, is_semantic: bool = True) -> dict:
     return {
-        "chunk_id":    row.get("chunk_id", ""),
-        "file_id":     row.get("file_id", ""),
-        "filename":    row.get("filename", ""),
-        "text":        row.get("text", ""),
-        "chunk_index": row.get("chunk_index", 0),
-        "score":       score,
+        "chunk_id":        row.get("chunk_id", ""),
+        "file_id":         row.get("file_id", ""),
+        "filename":        row.get("filename", ""),
+        "text":            row.get("text", ""),
+        "chunk_index":     row.get("chunk_index", 0),
+        "score":           score,
         "section_heading": row.get("section_heading", ""),
-        "page_number":     row.get("page_number", 0)
+        "page_number":     row.get("page_number", 0),
+        "is_semantic":     is_semantic  # Track if this was an actual match or just padding
     }
 
 async def _fetch_chunks(
@@ -126,8 +127,9 @@ async def _fetch_chunks(
         rows      = search.limit(top_k * 6).to_list()
         top_score = _dist_to_score(rows[0]) if rows else 0.0
         logger.info(f"TOP MATCH SCORE: {top_score}")
+        
         if top_score >= HIGH_CONF:
-            chunks = [_row_to_chunk(r, _dist_to_score(r)) for r in rows]
+            chunks = [_row_to_chunk(r, _dist_to_score(r), True) for r in rows]
             return sorted(chunks, key=lambda c: c["score"], reverse=True)[:max_chunks], "A"
 
         full_search = table.search()
@@ -139,19 +141,26 @@ async def _fetch_chunks(
 
         if top_score >= LOW_CONF:
             seen, result = {}, []
-            for r in rows:
+            for idx, r in enumerate(rows):
+                score = _dist_to_score(r)
+                # STRICTER CHECK: Only flag as true if it's in the actual top_k AND has a passing score
+                is_real_hit = (idx < top_k) and (score >= LOW_CONF)
+                
                 cid = r.get("chunk_id") or f"{r.get('file_id')}_{r.get('chunk_index')}"
                 if cid not in seen:
                     seen[cid] = True
-                    result.append(_row_to_chunk(r, _dist_to_score(r)))
+                    result.append(_row_to_chunk(r, score, is_real_hit))
+            
             for idx, r in enumerate(all_rows):
                 cid = r.get("chunk_id") or f"{r.get('file_id')}_{r.get('chunk_index')}"
                 if cid not in seen:
-                    result.append(_row_to_chunk(r, round(0.5*(1-idx/max(total,1)), 4)))
+                    seen[cid] = True
+                    result.append(_row_to_chunk(r, round(0.5*(1-idx/max(total,1)), 4), False))
             return result[:max_chunks], "B"
 
         return [
-            _row_to_chunk(r, round(1.0*(1-idx/max(total*2,1)), 4))
+            # Tag fallback rows as False
+            _row_to_chunk(r, round(1.0*(1-idx/max(total*2,1)), 4), False)
             for idx, r in enumerate(all_rows)
         ][:max_chunks], "C"
 
@@ -220,21 +229,23 @@ async def stream_chat(
 
         from storage.seaweed import SeaweedStore
         _seaweed = SeaweedStore()
-# assume same file (current system design)
         file_ids = list(set(c["file_id"] for c in chunks))
 
         image_paths = []
+        metadata_cache = {}
+        
+        # 1. ONLY pull images from chunks that were an actual semantic match
+        semantic_chunk_ids = {c["chunk_id"] for c in chunks if c.get("is_semantic", True)}
 
         for fid in file_ids:
             metadata = _seaweed.fetch_image_metadata(fid)
-
+            metadata_cache[fid] = metadata
             for img in metadata:
-                if set(img["vector_ids"]) & set(c["chunk_id"] for c in chunks):
+                if set(img["vector_ids"]) & semantic_chunk_ids:
                     image_paths.append(img["image_path"])
 
-        # optional dedup
         image_paths = list(set(image_paths))
-        logger.info(f"IMAGE PATHS FOUND: {image_paths}")
+        logger.info(f"IMAGE PATHS FOUND (Semantic Only): {image_paths}")
 
         # Sources event
         sources = _build_clean_sources(chunks)
@@ -248,9 +259,20 @@ async def stream_chat(
 
         # Build prompt
         chunk_context = _build_chunk_context(chunks)
+        
+        # 2. Map the real SeaweedFS path into the context so the LLM can render it 
+        for fid, metadata in metadata_cache.items():
+            for img in metadata:
+                # Extracts 'img_0' from '/images/xyz/img_0.png'
+                filename = img["image_path"].split("/")[-1]
+                placeholder = filename.split(".")[0]
+                chunk_context = chunk_context.replace(f'path="{placeholder}"', f'path="{img["image_path"]}"')
+
         system_prompt = (
             "You are a document assistant. Answer questions using only the provided document excerpts. "
-            "Be clear and concise. If the answer isn't in the documents, say so directly.\n\n"
+            "Be clear and concise. If the answer isn't in the documents, say so directly.\n"
+            "If an excerpt contains an image tag (e.g., <IMAGE path=\"/images/...\" />) that is highly relevant "
+            "to your explanation, include it inline in your answer using Markdown format: ![Image](/images/...)\n\n"
             f"DOCUMENT EXCERPTS:\n{chunk_context}"
         )
 
@@ -290,10 +312,13 @@ async def stream_chat(
                         continue
 
         full_answer = "".join(answer_parts)
+        
+        # 3. Fallback: Only append highly relevant images, and format them as Markdown so they render
         if image_paths:
-            full_answer += "\n\n## Images\n"
+            full_answer += "\n\n## Related Images\n"
             for path in image_paths:
-                full_answer += f"{path}\n"
+                full_answer += f"![Image]({path})\n"
+                
         logger.info(f"FINAL ANSWER:\n{full_answer}")
 
         # Save assistant message with sources embedded
