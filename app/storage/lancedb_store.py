@@ -40,6 +40,17 @@ class LanceDBStore:
         # ── chunks ────────────────────────────────────────────────────────────
         try:
             self.chunks = self.db.open_table("chunks")
+            existing = set(self.chunks.schema.names)
+            # Migration: add conversation fields if absent (added in v2)
+            conv_cols = {"participants", "thread_id", "platform", "sent_at"}
+            missing   = conv_cols - existing
+            if missing:
+                logger.info(f"chunks schema missing {missing} — adding columns")
+                for col in missing:
+                    try:
+                        self.chunks.add_columns({col: "''"})
+                    except Exception as ae:
+                        logger.warning(f"add_columns({col}) failed: {ae}")
             logger.info("✓ chunks table ready")
         except Exception:
             self.chunks = self.db.create_table("chunks", schema=Chunk)

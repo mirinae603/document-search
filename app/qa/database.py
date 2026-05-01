@@ -70,6 +70,34 @@ def _run_migrations():
 
         CREATE INDEX IF NOT EXISTS idx_messages_session
             ON messages(session_id, created_at);
+
+        -- ── Connector: OAuth token storage ──────────────────────────────────
+        CREATE TABLE IF NOT EXISTS connector_tokens (
+            id            TEXT PRIMARY KEY,
+            user_id       TEXT NOT NULL,
+            platform      TEXT NOT NULL,
+            access_token  TEXT NOT NULL,
+            refresh_token TEXT,
+            expires_at    TEXT NOT NULL,
+            scopes        TEXT NOT NULL DEFAULT '[]',
+            account_json  TEXT NOT NULL DEFAULT '{}',
+            updated_at    TEXT NOT NULL,
+            UNIQUE(user_id, platform)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_connector_tokens_user
+            ON connector_tokens(user_id, platform);
+
+        -- ── Connector: arbitrary per-user key-value state ───────────────────
+        -- Used for: last_sync timestamps, delta links, sync status
+        CREATE TABLE IF NOT EXISTS connector_state (
+            user_id    TEXT NOT NULL,
+            platform   TEXT NOT NULL,
+            key        TEXT NOT NULL,
+            value      TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (user_id, platform, key)
+        );
     """)
     db.commit()
     logger.info("✓ Migrations complete")

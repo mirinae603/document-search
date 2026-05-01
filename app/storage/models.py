@@ -47,3 +47,9 @@ class Chunk(LanceModel):
     # Page + section location — populated by extract_pages() at ingestion
     page_number:     int = 0          # ← NEW: physical page (1-based); 0 = unknown
     section_heading: str = ""         # ← NEW: nearest heading above this chunk
+    # Conversation connector fields — populated by ChatDocumentIndexer
+    # Empty string on all regular document chunks; non-empty on Teams/Slack chunks.
+    participants:    str = ""         # JSON list: '["user_a@co.com","user_b@co.com"]'
+    thread_id:       str = ""         # chat_id or team_id+channel_id
+    platform:        str = ""         # "teams" | "slack" | ""
+    sent_at:         str = ""         # ISO-8601 of the earliest message in this chunk

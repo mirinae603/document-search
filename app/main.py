@@ -22,6 +22,11 @@ from qa.session             import init_redis, close_redis  # ← new
 from api.ingestion_routes   import router as ingestion_router, init_ingestion_routes
 from api.search_routes      import router as search_router
 from api.qa_routes          import router as qa_router
+from connectors.teams       import TeamsConnector
+from connectors.chat_indexer import ChatDocumentIndexer
+from api.connector_routes   import router as connector_router, init_connector_routes
+from connectors.outlook     import OutlookConnector
+from api.intelligence_routes import router as intelligence_router, init_intelligence_routes
 
 logging.basicConfig(
     level  = logging.INFO,
@@ -45,10 +50,25 @@ async def lifespan(app: FastAPI):
     init_db()                          # libSQL — creates tables if needed
     await init_redis()                       # Redis  — fails soft if unavailable
 
+    # ── Connector infrastructure ──────────────────────────────────────────────
+    teams_connector = TeamsConnector()
+    outlook_connector = OutlookConnector()
+    chat_indexer    = ChatDocumentIndexer(
+        store    = store,
+        embedder = embedder,
+        seaweed  = seaweed,
+    )
+
     # ── Wire all blocks ───────────────────────────────────────────────────────
     init_search(store=store, embedder=embedder)
     init_agent(store=store, embedder=embedder)   # ← was init_qa(store=store)
     init_ingestion_routes(indexer=indexer, seaweed=seaweed)
+    init_connector_routes(
+        chat_indexer    = chat_indexer,
+        teams_connector = teams_connector,
+        outlook_connector = outlook_connector
+    )
+    init_intelligence_routes(store=store)
 
     logger.info("✓ All blocks initialised")
     yield
@@ -77,10 +97,14 @@ static_path = BASE_DIR / "static"
 static_path.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 
+
+# 3. After app.include_router(connector_router), add:
+app.include_router(intelligence_router)
 # Routers
 app.include_router(ingestion_router)
 app.include_router(search_router)
 app.include_router(qa_router)
+app.include_router(connector_router)
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

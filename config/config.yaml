@@ -3,18 +3,18 @@ embedding:
   provider: "openrouter"  # Options: openrouter, local, sentence-transformers
   
   openrouter:
-    api_key: "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"
+    api_key: ""
     model: "openai/text-embedding-3-small"  
     base_url: "https://openrouter.ai/api/v1"
     dimensions: 1536
   
-  local:
+  local:  
     model: "sentence-transformers/all-MiniLM-L6-v2"
     device: "cpu"
 
 # Reranker Configuration
 reranker:
-  provider: "jina"  # Options: jina, cohere, none
+  provider: "jina"  # Options: jina, cohere, none 
   
   jina:
     api_key: "jina_42f82a6c3a204bcbb7d0bd111528258eGYIwkN4igW9wYXWg9KFr7eyjVtN-"

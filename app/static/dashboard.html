@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intelligence Hub</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+    background: #0d0d0d; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+  }
+
+  /* Header */
+  header {
+    padding: 16px 24px; background: #111; border-bottom: 1px solid #1e1e1e;
+    display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+  }
+  .logo { font-size: 16px; font-weight: 700; color: #fff; letter-spacing: 1px; display: flex; align-items: center; gap: 8px; }
+  .logo-icon { color: #3b82f6; }
+  
+  .actions { display: flex; gap: 10px; }
+  .btn {
+    padding: 8px 16px; font-size: 12px; font-weight: 600; border-radius: 6px;
+    cursor: pointer; border: 1px solid #222; background: #1a1a1a; color: #aaa; transition: all 0.2s;
+  }
+  .btn:hover:not(:disabled) { background: #222; color: #fff; border-color: #444; }
+  .btn.sync-btn { border-color: #1d4ed8; color: #60a5fa; background: #1e3a5f; }
+  .btn.sync-btn:hover:not(:disabled) { background: #1e40af; color: #fff; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Main Grid */
+  main {
+    flex: 1; padding: 24px; overflow-y: auto;
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;
+  }
+  @media (max-width: 1200px) { main { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+
+  .col { display: flex; flex-direction: column; gap: 20px; }
+  
+  /* Cards */
+  .card {
+    background: #111; border: 1px solid #1e1e1e; border-radius: 12px;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .card-header {
+    padding: 14px 16px; border-bottom: 1px solid #1e1e1e; background: #151515;
+    font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 1px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .card-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+
+  /* Priority Emails */
+  .email-item { padding-bottom: 12px; border-bottom: 1px solid #1e1e1e; }
+  .email-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .email-subj { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 6px; }
+  .email-meta { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  
+  .badge { padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+  .badge.critical { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+  .badge.high { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+  .badge.medium { background: rgba(59, 130, 246, 0.15); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.3); }
+  .badge.low { background: #222; color: #888; }
+  
+  .reason { font-size: 12px; color: #aaa; line-height: 1.5; font-style: italic; border-left: 2px solid #333; padding-left: 10px; margin-bottom: 8px; }
+  .tasks { font-size: 12px; color: #4ade80; background: rgba(74, 222, 128, 0.05); padding: 8px 10px; border-radius: 6px; border: 1px dashed rgba(74, 222, 128, 0.2); }
+  .tasks ul { padding-left: 16px; margin-top: 4px; }
+
+  /* Teams Questions */
+  .q-item { background: #151515; border: 1px solid #222; padding: 12px; border-radius: 8px; }
+  .q-channel { font-size: 10px; color: #a855f7; font-weight: 600; margin-bottom: 6px; text-transform: uppercase; }
+  .q-text { font-size: 13px; color: #e0e0e0; line-height: 1.5; }
+
+  /* Summaries */
+  .summary-text { font-size: 13px; color: #ccc; line-height: 1.6; }
+  .summary-text h3 { font-size: 14px; color: #fff; margin: 12px 0 6px 0; }
+  .summary-text ul { padding-left: 18px; margin-bottom: 10px; }
+  .summary-text li { margin-bottom: 4px; }
+
+  /* States */
+  .loading { padding: 40px; text-align: center; color: #888; font-size: 13px; }
+  .spinner { display: inline-block; width: 24px; height: 24px; border: 2px solid #333; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><span class="logo-icon">✦</span> Intelligence Hub</div>
+  <div class="actions">
+    <button class="btn sync-btn" id="btn-teams" onclick="syncPlatform('teams')">Sync Teams</button>
+    <button class="btn sync-btn" id="btn-outlook" onclick="syncPlatform('outlook')">Sync Outlook</button>
+    <button class="btn" onclick="loadBriefing()">↻ Refresh Data</button>
+  </div>
+</header>
+
+<main id="dashboard-content">
+  <div class="loading">
+    <div class="spinner"></div>
+    <div>Analyzing your emails and chats...</div>
+  </div>
+</main>
+
+<script>
+const DEV_USER = 'dev-user-001';
+
+async function syncPlatform(platform) {
+  const btn = document.getElementById(`btn-${platform}`);
+  btn.disabled = true;
+  btn.textContent = 'Syncing...';
+  
+  try {
+    const res = await fetch(`/connector/${platform}/sync?delta=true&wait=true`, { method: 'POST' });
+    if (!res.ok) {
+      if (res.status === 401) {
+        alert(`Need to authenticate ${platform} first! Redirecting...`);
+        window.location.href = `/connector/${platform}/oauth/start`;
+        return;
+      }
+      throw new Error('Sync failed');
+    }
+    btn.textContent = 'Sync Complete!';
+    setTimeout(() => { loadBriefing(); btn.textContent = `Sync ${platform}`; btn.disabled = false; }, 2000);
+  } catch(e) {
+    alert(e.message);
+    btn.textContent = `Sync ${platform}`;
+    btn.disabled = false;
+  }
+}
+
+async function loadBriefing() {
+  const main = document.getElementById('dashboard-content');
+  main.innerHTML = '<div class="loading"><div class="spinner"></div><div>Analyzing last 24 hours...</div></div>';
+  
+  try {
+    const res = await fetch('/intelligence/briefing?hours=24', { headers: { 'X-User-Id': DEV_USER } });
+    const data = await res.json();
+    renderDashboard(data);
+  } catch(e) {
+    main.innerHTML = `<div class="loading" style="color:#ef4444">Error loading briefing: ${e.message}</div>`;
+  }
+}
+
+function renderDashboard(data) {
+  const main = document.getElementById('dashboard-content');
+  
+  // Safe extraction (handle errors from backend)
+  const emails = data.priority_emails?.ranked_emails || [];
+  const questions = data.open_questions?.questions || [];
+  const tSum = data.teams_summary?.overall_digest || 'No recent Teams activity.';
+  const oSum = data.outlook_summary?.overall_digest || 'No recent Outlook activity.';
+
+  main.innerHTML = `
+    <div class="col">
+      <div class="card">
+        <div class="card-header">
+          <span>📧 Outlook Summary</span>
+        </div>
+        <div class="card-body summary-text">
+          ${formatMarkdown(oSum)}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span>💬 Teams Summary</span>
+        </div>
+        <div class="card-body summary-text">
+          ${formatMarkdown(tSum)}
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="card">
+        <div class="card-header">
+          <span>🚨 Priority Action Required</span>
+          <span>${emails.length} items</span>
+        </div>
+        <div class="card-body">
+          ${emails.length === 0 ? '<div style="color:#666;font-size:12px">Inbox Zero! No high priority emails.</div>' : 
+            emails.map(e => `
+              <div class="email-item">
+                <div class="email-subj">${esc(e.subject)}</div>
+                <div class="email-meta">
+                  <span class="badge ${e.priority_label}">${e.priority_label} (${e.priority_score}/10)</span>
+                  ${e.has_deadline ? `<span class="badge medium">Due: ${esc(e.deadline_text)}</span>` : ''}
+                </div>
+                <div class="reason">${esc(e.reason)}</div>
+                ${e.extracted_tasks?.length ? `
+                  <div class="tasks">
+                    <strong>Extracted Tasks:</strong>
+                    <ul>${e.extracted_tasks.map(t => `<li>${esc(t)}</li>`).join('')}</ul>
+                  </div>
+                ` : ''}
+              </div>
+            `).join('')
+          }
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="card">
+        <div class="card-header">
+          <span>❓ Unanswered Team Questions</span>
+          <span>${questions.length} items</span>
+        </div>
+        <div class="card-body">
+          ${questions.length === 0 ? '<div style="color:#666;font-size:12px">No pending questions in your channels.</div>' : 
+            questions.map(q => `
+              <div class="q-item">
+                <div class="q-channel"># ${esc(q.channel_name || 'general')}</div>
+                <div class="q-text">"${esc(q.question)}"</div>
+                <div style="font-size:10px;color:#666;margin-top:6px;display:flex;justify-content:space-between">
+                  <span>Asked by ${esc(q.asker_name)}</span>
+                  <span style="color:${q.urgency==='high'?'#ef4444':'#aaa'}">${q.urgency} urgency</span>
+                </div>
+              </div>
+            `).join('')
+          }
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Helpers
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function formatMarkdown(text) {
+  return esc(text)
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/\n\n/g, '</p><p style="margin-top:8px">')
+    .replace(/\n- (.*?)/g, '<li>$1</li>')
+    .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+}
+
+// Auto-load on boot
+window.onload = loadBriefing;
+</script>
+</body>
+</html>

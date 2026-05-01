@@ -69,6 +69,7 @@ async def _stream_document_list(session_id: str) -> AsyncGenerator[str, None]:
 
     for char in answer:
         yield _sse({"type": "token", "token": char})
+        
     await asyncio.sleep(0)
 
     save_message(session_id, "assistant", answer, sources=[])
@@ -129,7 +130,12 @@ async def _fetch_chunks(
         logger.info(f"TOP MATCH SCORE: {top_score}")
         
         if top_score >= HIGH_CONF:
-            chunks = [_row_to_chunk(r, _dist_to_score(r), True) for r in rows]
+           chunks = []
+           for idx, r in enumerate(rows):
+            score = _dist_to_score(r)
+            is_real_hit = (idx < top_k) and (score >= LOW_CONF)
+            chunks.append(_row_to_chunk(r, score, is_real_hit))
+                            
             return sorted(chunks, key=lambda c: c["score"], reverse=True)[:max_chunks], "A"
 
         full_search = table.search()
@@ -315,10 +321,14 @@ async def stream_chat(
         
         # 3. Fallback: Only append highly relevant images, and format them as Markdown so they render
         if image_paths:
+            image_block = "\n\n## Related Images\n"
             full_answer += "\n\n## Related Images\n"
+            yield _sse({"type": "token", "token": image_block})
             for path in image_paths:
-                full_answer += f"![Image]({path})\n"
-                
+                img_token = f"![Image]({path})\n"
+                full_answer += img_token
+                yield _sse({"type": "token", "token": img_token})
+
         logger.info(f"FINAL ANSWER:\n{full_answer}")
 
         # Save assistant message with sources embedded
