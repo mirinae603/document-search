@@ -1,246 +1,1169 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Intelligence Hub</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Intelligence Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet" />
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { 
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
-    background: #0d0d0d; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+  :root {
+    --bg:         #0d0f12;
+    --surface:    #13161b;
+    --surface2:   #1a1e26;
+    --border:     #252a35;
+    --border2:    #2e3545;
+    --text:       #e2e6ef;
+    --muted:      #6b7691;
+    --accent:     #4f8fff;
+    --accent2:    #7c5cfa;
+    --critical:   #ff4757;
+    --high:       #ff8c42;
+    --medium:     #ffd166;
+    --low:        #06d6a0;
+    --teams:      #5b5fc7;
+    --outlook:    #0072c6;
+    --r: 8px;
+    --r2: 12px;
   }
 
-  /* Header */
-  header {
-    padding: 16px 24px; background: #111; border-bottom: 1px solid #1e1e1e;
-    display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
   }
-  .logo { font-size: 16px; font-weight: 700; color: #fff; letter-spacing: 1px; display: flex; align-items: center; gap: 8px; }
-  .logo-icon { color: #3b82f6; }
-  
-  .actions { display: flex; gap: 10px; }
+
+  /* ── LAYOUT ── */
+  .shell {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    grid-template-rows: 56px 1fr;
+    min-height: 100vh;
+  }
+
+  /* ── TOPBAR ── */
+  .topbar {
+    grid-column: 1 / -1;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    gap: 16px;
+  }
+  .topbar-logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 16px;
+    letter-spacing: -0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .topbar-logo .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity:1; } 50% { opacity:0.3; }
+  }
+  .topbar-sep { flex: 1; }
+  .base-url-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 6px 12px;
+  }
+  .base-url-bar label {
+    color: var(--muted);
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+  .base-url-bar input {
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    width: 220px;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 16px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow-y: auto;
+  }
+  .nav-section {
+    padding: 8px 16px 4px;
+    font-size: 10px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 16px;
+    cursor: pointer;
+    border-left: 2px solid transparent;
+    transition: all .15s;
+    font-size: 13px;
+    color: var(--muted);
+    text-decoration: none;
+  }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active {
+    background: var(--surface2);
+    border-left-color: var(--accent);
+    color: var(--text);
+  }
+  .nav-item .icon { font-size: 16px; line-height: 1; width: 20px; text-align: center; }
+  .nav-badge {
+    margin-left: auto;
+    background: var(--accent);
+    color: #fff;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 20px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ── MAIN ── */
+  .main {
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* ── PAGE HEADER ── */
+  .page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .page-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 24px;
+    letter-spacing: -0.5px;
+  }
+  .page-sub {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 2px;
+  }
+
+  /* ── CONTROLS BAR ── */
+  .controls {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r2);
+    padding: 14px 18px;
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+  .ctrl-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .ctrl-group label {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+  }
+  .ctrl-group input, .ctrl-group select {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--r);
+    color: var(--text);
+    padding: 7px 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    outline: none;
+    transition: border-color .15s;
+    min-width: 120px;
+  }
+  .ctrl-group input:focus, .ctrl-group select:focus { border-color: var(--accent); }
+  .ctrl-group select option { background: var(--surface2); }
+  .ctrl-sep { flex: 1; }
   .btn {
-    padding: 8px 16px; font-size: 12px; font-weight: 600; border-radius: 6px;
-    cursor: pointer; border: 1px solid #222; background: #1a1a1a; color: #aaa; transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 18px;
+    border: none;
+    border-radius: var(--r);
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
   }
-  .btn:hover:not(:disabled) { background: #222; color: #fff; border-color: #444; }
-  .btn.sync-btn { border-color: #1d4ed8; color: #60a5fa; background: #1e3a5f; }
-  .btn.sync-btn:hover:not(:disabled) { background: #1e40af; color: #fff; }
-  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-  /* Main Grid */
-  main {
-    flex: 1; padding: 24px; overflow-y: auto;
-    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
   }
-  @media (max-width: 1200px) { main { grid-template-columns: 1fr 1fr; } }
-  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
-
-  .col { display: flex; flex-direction: column; gap: 20px; }
-  
-  /* Cards */
-  .card {
-    background: #111; border: 1px solid #1e1e1e; border-radius: 12px;
-    display: flex; flex-direction: column; overflow: hidden;
-  }
-  .card-header {
-    padding: 14px 16px; border-bottom: 1px solid #1e1e1e; background: #151515;
-    font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 1px;
-    display: flex; justify-content: space-between; align-items: center;
-  }
-  .card-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-
-  /* Priority Emails */
-  .email-item { padding-bottom: 12px; border-bottom: 1px solid #1e1e1e; }
-  .email-item:last-child { border-bottom: none; padding-bottom: 0; }
-  .email-subj { font-size: 14px; font-weight: 600; color: #fff; margin-bottom: 6px; }
-  .email-meta { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
-  
-  .badge { padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
-  .badge.critical { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
-  .badge.high { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
-  .badge.medium { background: rgba(59, 130, 246, 0.15); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.3); }
-  .badge.low { background: #222; color: #888; }
-  
-  .reason { font-size: 12px; color: #aaa; line-height: 1.5; font-style: italic; border-left: 2px solid #333; padding-left: 10px; margin-bottom: 8px; }
-  .tasks { font-size: 12px; color: #4ade80; background: rgba(74, 222, 128, 0.05); padding: 8px 10px; border-radius: 6px; border: 1px dashed rgba(74, 222, 128, 0.2); }
-  .tasks ul { padding-left: 16px; margin-top: 4px; }
-
-  /* Teams Questions */
-  .q-item { background: #151515; border: 1px solid #222; padding: 12px; border-radius: 8px; }
-  .q-channel { font-size: 10px; color: #a855f7; font-weight: 600; margin-bottom: 6px; text-transform: uppercase; }
-  .q-text { font-size: 13px; color: #e0e0e0; line-height: 1.5; }
-
-  /* Summaries */
-  .summary-text { font-size: 13px; color: #ccc; line-height: 1.6; }
-  .summary-text h3 { font-size: 14px; color: #fff; margin: 12px 0 6px 0; }
-  .summary-text ul { padding-left: 18px; margin-bottom: 10px; }
-  .summary-text li { margin-bottom: 4px; }
-
-  /* States */
-  .loading { padding: 40px; text-align: center; color: #888; font-size: 13px; }
-  .spinner { display: inline-block; width: 24px; height: 24px; border: 2px solid #333; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 12px; }
+  .btn-primary:hover { background: #3d7aff; }
+  .btn-primary:active { transform: scale(.97); }
+  .btn-loading { opacity: 0.6; pointer-events: none; }
+  .spin { display: inline-block; animation: spin .7s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  
-  ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r2);
+    overflow: hidden;
+  }
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .card-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-body { padding: 18px; }
+
+  /* ── DIGEST BOX ── */
+  .digest-box {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-left: 3px solid var(--accent2);
+    border-radius: var(--r);
+    padding: 14px 16px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #c8d0e0;
+    margin-bottom: 18px;
+  }
+  .digest-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--accent2);
+    margin-bottom: 6px;
+  }
+
+  /* ── THREAD / CHANNEL ITEM ── */
+  .item-list { display: flex; flex-direction: column; gap: 12px; }
+  .thread-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    overflow: hidden;
+    transition: border-color .15s;
+  }
+  .thread-card:hover { border-color: var(--border2); }
+  .thread-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .thread-icon {
+    width: 34px; height: 34px;
+    border-radius: var(--r);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+  .thread-icon.outlook { background: rgba(0,114,198,.15); color: var(--outlook); }
+  .thread-icon.teams   { background: rgba(91,95,199,.15);  color: var(--teams); }
+  .thread-meta { flex: 1; min-width: 0; }
+  .thread-subject {
+    font-weight: 500;
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .thread-info {
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 2px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .chevron {
+    color: var(--muted);
+    font-size: 12px;
+    transition: transform .2s;
+  }
+  .thread-body {
+    border-top: 1px solid var(--border);
+    padding: 14px;
+    display: none;
+  }
+  .thread-body.open { display: block; }
+  .chevron.open { transform: rotate(90deg); }
+
+  .thread-summary { font-size: 13px; color: #c8d0e0; margin-bottom: 12px; line-height: 1.7; }
+
+  .points-section { margin-top: 10px; }
+  .points-label {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .point-item {
+    display: flex;
+    gap: 8px;
+    font-size: 13px;
+    color: #bcc5d8;
+    padding: 4px 0;
+    line-height: 1.5;
+  }
+  .point-item::before { content: '·'; color: var(--accent); flex-shrink: 0; }
+  .action-item {
+    display: flex;
+    gap: 8px;
+    font-size: 12px;
+    color: #bcc5d8;
+    padding: 5px 8px;
+    background: rgba(79,143,255,.07);
+    border-radius: 5px;
+    border-left: 2px solid var(--accent);
+    margin-bottom: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1.5;
+  }
+
+  /* ── PRIORITY EMAIL CARD ── */
+  .prio-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    overflow: hidden;
+  }
+  .prio-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .score-badge {
+    width: 38px; height: 38px;
+    border-radius: var(--r);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 17px;
+    flex-shrink: 0;
+  }
+  .score-critical { background: rgba(255,71,87,.15); color: var(--critical); border: 1px solid rgba(255,71,87,.3); }
+  .score-high     { background: rgba(255,140,66,.15); color: var(--high);     border: 1px solid rgba(255,140,66,.3); }
+  .score-medium   { background: rgba(255,209,102,.15); color: var(--medium);   border: 1px solid rgba(255,209,102,.3); }
+  .score-low      { background: rgba(6,214,160,.15);  color: var(--low);      border: 1px solid rgba(6,214,160,.3); }
+  .prio-label-pill {
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .label-critical { background: rgba(255,71,87,.15);  color: var(--critical); }
+  .label-high     { background: rgba(255,140,66,.15); color: var(--high); }
+  .label-medium   { background: rgba(255,209,102,.1); color: var(--medium); }
+  .label-low      { background: rgba(6,214,160,.12);  color: var(--low); }
+
+  .urgency-tag {
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    background: rgba(255,255,255,.05);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .deadline-block {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 10px;
+    background: rgba(255,71,87,.07);
+    border: 1px solid rgba(255,71,87,.2);
+    border-radius: var(--r);
+    font-size: 12px;
+    color: #ff8a96;
+    margin-top: 10px;
+  }
+
+  /* ── QUESTIONS ── */
+  .q-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 12px 14px;
+  }
+  .q-urgency-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 5px;
+  }
+  .urgency-high   { background: var(--critical); box-shadow: 0 0 6px var(--critical); }
+  .urgency-medium { background: var(--medium); }
+  .urgency-low    { background: var(--low); }
+  .q-text { font-size: 13px; font-weight: 500; flex: 1; }
+  .q-meta { font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; margin-top: 4px; }
+  .q-topic {
+    display: inline-block;
+    padding: 2px 7px;
+    background: rgba(124,92,250,.12);
+    color: var(--accent2);
+    border-radius: 4px;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    border: 1px solid rgba(124,92,250,.2);
+  }
+  .q-answered {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    background: rgba(6,214,160,.1);
+    color: var(--low);
+    border-radius: 4px;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .q-unanswered {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    background: rgba(255,71,87,.1);
+    color: var(--critical);
+    border-radius: 4px;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .channel-group { margin-bottom: 20px; }
+  .channel-group-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--teams);
+    padding: 8px 0 10px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ── STATS ROW ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+  }
+  .stat-tile {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 14px;
+  }
+  .stat-num {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 28px;
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+  .stat-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 4px;
+  }
+
+  /* ── EMPTY / ERROR STATES ── */
+  .state-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px;
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+    gap: 8px;
+  }
+  .state-box .ico { font-size: 32px; }
+
+  /* ── SECTIONS ── */
+  .section { display: none; }
+  .section.active { display: flex; flex-direction: column; gap: 20px; }
+
+  /* ── BRIEFING GRID ── */
+  .briefing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+    gap: 20px;
+  }
+
+  /* ── PARTICIPANTS ── */
+  .participants {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 8px;
+  }
+  .participant-chip {
+    padding: 2px 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
 </style>
 </head>
 <body>
 
-<header>
-  <div class="logo"><span class="logo-icon">✦</span> Intelligence Hub</div>
-  <div class="actions">
-    <button class="btn sync-btn" id="btn-teams" onclick="syncPlatform('teams')">Sync Teams</button>
-    <button class="btn sync-btn" id="btn-outlook" onclick="syncPlatform('outlook')">Sync Outlook</button>
-    <button class="btn" onclick="loadBriefing()">↻ Refresh Data</button>
-  </div>
-</header>
+<div class="shell">
+  <!-- ── TOPBAR ── -->
+  <header class="topbar">
+    <div class="topbar-logo"><span class="dot"></span> Intelligence Hub</div>
+    <div class="topbar-sep"></div>
+    <div class="base-url-bar">
+      <label>API</label>
+      <input id="baseUrl" type="text" value="http://localhost:8000" placeholder="http://localhost:8000" />
+    </div>
+  </header>
 
-<main id="dashboard-content">
-  <div class="loading">
-    <div class="spinner"></div>
-    <div>Analyzing your emails and chats...</div>
-  </div>
-</main>
+  <!-- ── SIDEBAR ── -->
+  <nav class="sidebar">
+    <div class="nav-section">Briefings</div>
+    <a class="nav-item active" data-section="briefing" href="#">
+      <span class="icon">⚡</span> Daily Briefing
+    </a>
+
+    <div class="nav-section" style="margin-top:8px">Outlook</div>
+    <a class="nav-item" data-section="outlook-summary" href="#">
+      <span class="icon">📧</span> Email Summary
+    </a>
+    <a class="nav-item" data-section="outlook-priority" href="#">
+      <span class="icon">🎯</span> Priority Inbox
+    </a>
+
+    <div class="nav-section" style="margin-top:8px">Teams</div>
+    <a class="nav-item" data-section="teams-summary" href="#">
+      <span class="icon">💬</span> Channel Summary
+    </a>
+    <a class="nav-item" data-section="teams-questions" href="#">
+      <span class="icon">❓</span> Open Questions
+    </a>
+  </nav>
+
+  <!-- ── MAIN ── -->
+  <main class="main">
+
+    <!-- ═══════════════════════════════ BRIEFING ═══════════════════════════════ -->
+    <div id="briefing" class="section active">
+      <div class="page-header">
+        <div>
+          <div class="page-title">⚡ Daily Briefing</div>
+          <div class="page-sub">Combined intelligence snapshot — Outlook + Teams in one call</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="ctrl-group">
+          <label>Look-back (hours)</label>
+          <input id="briefing-hours" type="number" value="24" min="1" max="164" />
+        </div>
+        <div class="ctrl-sep"></div>
+        <button class="btn btn-primary" id="briefing-run">
+          <span>▶</span> Run Briefing
+        </button>
+      </div>
+
+      <div id="briefing-out"></div>
+    </div>
+
+    <!-- ═══════════════════════════════ OUTLOOK SUMMARY ═══════════════════════ -->
+    <div id="outlook-summary" class="section">
+      <div class="page-header">
+        <div>
+          <div class="page-title">📧 Email Summary</div>
+          <div class="page-sub">Thread-by-thread digest of indexed Outlook emails</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="ctrl-group">
+          <label>Look-back (hours)</label>
+          <input id="os-hours" type="number" value="500" min="1" max="168" />
+        </div>
+        <div class="ctrl-sep"></div>
+        <button class="btn btn-primary" id="os-run">
+          <span>▶</span> Fetch Summary
+        </button>
+      </div>
+
+      <div id="os-out"></div>
+    </div>
+
+    <!-- ═══════════════════════════════ PRIORITY ═══════════════════════════════ -->
+    <div id="outlook-priority" class="section">
+      <div class="page-header">
+        <div>
+          <div class="page-title">🎯 Priority Inbox</div>
+          <div class="page-sub">AI-ranked emails by urgency, deadline &amp; action required</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="ctrl-group">
+          <label>Look-back (hours)</label>
+          <input id="op-hours" type="number" value="48" min="1" max="168" />
+        </div>
+        <div class="ctrl-group">
+          <label>Top N</label>
+          <input id="op-topn" type="number" value="10" min="1" max="30" />
+        </div>
+        <div class="ctrl-group" style="flex:1">
+          <label>Your role / context (optional)</label>
+          <input id="op-context" type="text" placeholder="e.g. engineering manager" style="width:100%" />
+        </div>
+        <button class="btn btn-primary" id="op-run">
+          <span>▶</span> Rank Emails
+        </button>
+      </div>
+
+      <div id="op-out"></div>
+    </div>
+
+    <!-- ═══════════════════════════════ TEAMS SUMMARY ══════════════════════════ -->
+    <div id="teams-summary" class="section">
+      <div class="page-header">
+        <div>
+          <div class="page-title">💬 Channel Summary</div>
+          <div class="page-sub">Per-channel digest with key points and action items</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="ctrl-group">
+          <label>Look-back (hours, optional)</label>
+          <input id="ts-hours" type="number" placeholder="all time" min="1" max="168" />
+        </div>
+        <div class="ctrl-group">
+          <label>Channel filter (optional)</label>
+          <input id="ts-filter" type="text" placeholder="e.g. engineering" />
+        </div>
+        <div class="ctrl-sep"></div>
+        <button class="btn btn-primary" id="ts-run">
+          <span>▶</span> Summarise
+        </button>
+      </div>
+
+      <div id="ts-out"></div>
+    </div>
+
+    <!-- ═══════════════════════════════ QUESTIONS ══════════════════════════════ -->
+    <div id="teams-questions" class="section">
+      <div class="page-header">
+        <div>
+          <div class="page-title">❓ Open Questions</div>
+          <div class="page-sub">Unanswered questions in Teams channels — sorted by urgency</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="ctrl-group">
+          <label>Look-back (hours, optional)</label>
+          <input id="tq-hours" type="number" placeholder="all time" min="1" max="168" />
+        </div>
+        <div class="ctrl-group">
+          <label>Channel filter (optional)</label>
+          <input id="tq-filter" type="text" placeholder="e.g. general" />
+        </div>
+        <div class="ctrl-group">
+          <label>Show</label>
+          <select id="tq-unanswered">
+            <option value="true">Unanswered only</option>
+            <option value="false">All questions</option>
+          </select>
+        </div>
+        <div class="ctrl-sep"></div>
+        <button class="btn btn-primary" id="tq-run">
+          <span>▶</span> Track Questions
+        </button>
+      </div>
+
+      <div id="tq-out"></div>
+    </div>
+
+  </main>
+</div>
 
 <script>
-const DEV_USER = 'dev-user-001';
+// ── NAV ──────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.nav-item').forEach(link => {
+  link.addEventListener('click', e => {
+    e.preventDefault();
+    document.querySelectorAll('.nav-item').forEach(l => l.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    link.classList.add('active');
+    document.getElementById(link.dataset.section).classList.add('active');
+  });
+});
 
-async function syncPlatform(platform) {
-  const btn = document.getElementById(`btn-${platform}`);
-  btn.disabled = true;
-  btn.textContent = 'Syncing...';
-  
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+const base = () => document.getElementById('baseUrl').value.replace(/\/$/, '');
+
+async function apiFetch(path, btn) {
+  btn.classList.add('btn-loading');
+  btn.innerHTML = '<span class="spin">⟳</span> Loading…';
   try {
-    const res = await fetch(`/connector/${platform}/sync?delta=true&wait=true`, { method: 'POST' });
-    if (!res.ok) {
-      if (res.status === 401) {
-        alert(`Need to authenticate ${platform} first! Redirecting...`);
-        window.location.href = `/connector/${platform}/oauth/start`;
-        return;
-      }
-      throw new Error('Sync failed');
-    }
-    btn.textContent = 'Sync Complete!';
-    setTimeout(() => { loadBriefing(); btn.textContent = `Sync ${platform}`; btn.disabled = false; }, 2000);
-  } catch(e) {
-    alert(e.message);
-    btn.textContent = `Sync ${platform}`;
-    btn.disabled = false;
+    const res = await fetch(base() + path);
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+    return await res.json();
+  } finally {
+    btn.classList.remove('btn-loading');
   }
 }
 
-async function loadBriefing() {
-  const main = document.getElementById('dashboard-content');
-  main.innerHTML = '<div class="loading"><div class="spinner"></div><div>Analyzing last 24 hours...</div></div>';
-  
+function qs(sel) { return document.querySelector(sel); }
+
+function fmtDate(iso) {
+  if (!iso) return '—';
   try {
-    const res = await fetch('/intelligence/briefing?hours=24', { headers: { 'X-User-Id': DEV_USER } });
-    const data = await res.json();
-    renderDashboard(data);
-  } catch(e) {
-    main.innerHTML = `<div class="loading" style="color:#ef4444">Error loading briefing: ${e.message}</div>`;
+    return new Date(iso).toLocaleString('en-US', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+  } catch { return iso; }
+}
+
+function scoreClass(label) {
+  return `score-${label || 'medium'}`;
+}
+
+function errorBox(msg) {
+  return `<div class="state-box"><span class="ico">⚠️</span><span>${msg}</span></div>`;
+}
+
+function emptyBox(msg) {
+  return `<div class="state-box"><span class="ico">🔭</span><span>${msg || 'No data found for this time window.'}</span></div>`;
+}
+
+// ── TOGGLE (accordion) ───────────────────────────────────────────────────────
+document.addEventListener('click', e => {
+  const head = e.target.closest('.thread-head, .prio-head');
+  if (!head) return;
+  const body = head.nextElementSibling;
+  if (!body) return;
+  const chev = head.querySelector('.chevron');
+  body.classList.toggle('open');
+  if (chev) chev.classList.toggle('open');
+});
+
+// ─────────────────────────── RENDER HELPERS ──────────────────────────────────
+
+function renderPointsSection(label, items, className='point-item') {
+  if (!items || !items.length) return '';
+  const rows = items.map(i => `<div class="${className}">${escHtml(i)}</div>`).join('');
+  return `<div class="points-section">
+    <div class="points-label">${label}</div>
+    ${rows}
+  </div>`;
+}
+
+function renderActionItems(items) {
+  if (!items || !items.length) return '';
+  const rows = items.map(i => `<div class="action-item">📌 ${escHtml(i)}</div>`).join('');
+  return `<div class="points-section">
+    <div class="points-label">Action Items</div>
+    ${rows}
+  </div>`;
+}
+
+function renderParticipants(arr) {
+  if (!arr || !arr.length) return '';
+  return `<div class="participants">${arr.map(p => `<span class="participant-chip">${escHtml(p)}</span>`).join('')}</div>`;
+}
+
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ─────────────────────────── OUTLOOK SUMMARY ─────────────────────────────────
+
+function renderOutlookSummary(data) {
+  if (!data) return errorBox('No response');
+  if (data.error) return errorBox(data.error);
+  const threads = data.threads || [];
+  if (!threads.length) return emptyBox(data.overall_digest || data.message);
+
+  const statsHtml = `<div class="stats-row">
+    <div class="stat-tile"><div class="stat-num" style="color:var(--outlook)">${data.thread_count ?? threads.length}</div><div class="stat-label">Threads</div></div>
+    <div class="stat-tile"><div class="stat-num">${data.period_hours ?? '—'}</div><div class="stat-label">Hours back</div></div>
+    <div class="stat-tile"><div class="stat-num">${fmtDate(data.generated_at)}</div><div class="stat-label">Generated</div></div>
+  </div>`;
+
+  const digestHtml = data.overall_digest ? `
+    <div class="digest-box">
+      <div class="digest-label">📋 Overall Digest</div>
+      ${escHtml(data.overall_digest)}
+    </div>` : '';
+
+  const items = threads.map(t => `
+    <div class="thread-card">
+      <div class="thread-head">
+        <div class="thread-icon outlook">✉️</div>
+        <div class="thread-meta">
+          <div class="thread-subject">${escHtml(t.subject || 'Untitled Thread')}</div>
+          <div class="thread-info">
+            <span>💬 ${t.message_count ?? 1} messages</span>
+            <span>🕐 ${fmtDate(t.latest_at)}</span>
+            ${t.participants?.length ? `<span>👥 ${t.participants.slice(0,3).map(escHtml).join(', ')}${t.participants.length > 3 ? ` +${t.participants.length-3}` : ''}</span>` : ''}
+          </div>
+        </div>
+        <span class="chevron">›</span>
+      </div>
+      <div class="thread-body">
+        <div class="thread-summary">${escHtml(t.summary || '')}</div>
+        ${renderPointsSection('Key Points', t.key_points)}
+        ${renderActionItems(t.action_items)}
+        ${renderParticipants(t.participants)}
+      </div>
+    </div>`).join('');
+
+  return statsHtml + digestHtml + `<div class="card"><div class="card-head"><div class="card-title"><span style="color:var(--outlook)">✉️</span> Email Threads</div></div><div class="card-body"><div class="item-list">${items}</div></div></div>`;
+}
+
+// ─────────────────────────── TEAMS SUMMARY ───────────────────────────────────
+
+function renderTeamsSummary(data) {
+  if (!data) return errorBox('No response');
+  if (data.error) return errorBox(data.error);
+  const channels = data.channels || [];
+  if (!channels.length) return emptyBox(data.overall_digest || data.message);
+
+  const statsHtml = `<div class="stats-row">
+    <div class="stat-tile"><div class="stat-num" style="color:var(--teams)">${data.channel_count ?? channels.length}</div><div class="stat-label">Channels</div></div>
+    <div class="stat-tile"><div class="stat-num">${data.period_hours ?? '—'}</div><div class="stat-label">Hours back</div></div>
+    <div class="stat-tile"><div class="stat-num">${fmtDate(data.generated_at)}</div><div class="stat-label">Generated</div></div>
+  </div>`;
+
+  const digestHtml = data.overall_digest ? `
+    <div class="digest-box">
+      <div class="digest-label">📋 Overall Digest</div>
+      ${escHtml(data.overall_digest)}
+    </div>` : '';
+
+  const items = channels.map(c => `
+    <div class="thread-card">
+      <div class="thread-head">
+        <div class="thread-icon teams">💬</div>
+        <div class="thread-meta">
+          <div class="thread-subject">${escHtml(c.channel || 'Unknown Channel')}</div>
+          <div class="thread-info">
+            <span>💬 ${c.message_count ?? 0} messages</span>
+            <span>🕐 ${fmtDate(c.latest_at)}</span>
+            ${c.participants?.length ? `<span>👥 ${c.participants.slice(0,3).map(escHtml).join(', ')}${c.participants.length>3?` +${c.participants.length-3}`:''}</span>` : ''}
+          </div>
+        </div>
+        <span class="chevron">›</span>
+      </div>
+      <div class="thread-body">
+        <div class="thread-summary">${escHtml(c.summary || '')}</div>
+        ${renderPointsSection('Key Points', c.key_points)}
+        ${renderActionItems(c.action_items)}
+        ${renderParticipants(c.participants)}
+      </div>
+    </div>`).join('');
+
+  return statsHtml + digestHtml + `<div class="card"><div class="card-head"><div class="card-title"><span style="color:var(--teams)">💬</span> Channels</div></div><div class="card-body"><div class="item-list">${items}</div></div></div>`;
+}
+
+// ─────────────────────────── PRIORITY EMAILS ─────────────────────────────────
+
+function renderPriority(data) {
+  if (!data) return errorBox('No response');
+  if (data.error) return errorBox(data.error);
+  const emails = data.ranked_emails || [];
+  if (!emails.length) return emptyBox(data.message);
+
+  const labelCounts = {critical:0, high:0, medium:0, low:0};
+  emails.forEach(e => { if(labelCounts[e.priority_label] !== undefined) labelCounts[e.priority_label]++; });
+
+  const statsHtml = `<div class="stats-row">
+    <div class="stat-tile"><div class="stat-num" style="color:var(--critical)">${labelCounts.critical}</div><div class="stat-label">Critical</div></div>
+    <div class="stat-tile"><div class="stat-num" style="color:var(--high)">${labelCounts.high}</div><div class="stat-label">High</div></div>
+    <div class="stat-tile"><div class="stat-num" style="color:var(--medium)">${labelCounts.medium}</div><div class="stat-label">Medium</div></div>
+    <div class="stat-tile"><div class="stat-num" style="color:var(--low)">${labelCounts.low}</div><div class="stat-label">Low</div></div>
+    <div class="stat-tile"><div class="stat-num">${data.total_threads_scanned ?? emails.length}</div><div class="stat-label">Scanned</div></div>
+  </div>`;
+
+  const items = emails.map(e => {
+    const lbl = e.priority_label || 'medium';
+    const urgencyTags = (e.urgency_signals || []).map(s => `<span class="urgency-tag">${escHtml(s)}</span>`).join(' ');
+    const deadlineHtml = e.has_deadline ? `<div class="deadline-block">⏰ Deadline: ${escHtml(e.deadline_text || 'mentioned')}</div>` : '';
+    const actionRequired = e.action_required ? '<span style="color:var(--critical);font-size:11px;font-family:\'JetBrains Mono\',monospace">⚠ ACTION REQUIRED</span>' : '';
+    return `
+      <div class="prio-card">
+        <div class="prio-head">
+          <div class="score-badge ${scoreClass(lbl)}">${e.priority_score ?? '?'}</div>
+          <div class="thread-meta">
+            <div class="thread-subject" style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+              ${escHtml(e.subject || 'Untitled')}
+              <span class="prio-label-pill label-${lbl}">${lbl}</span>
+              ${actionRequired}
+            </div>
+            <div class="thread-info">
+              <span>💬 ${e.message_count ?? 1} msgs</span>
+              <span>🕐 ${fmtDate(e.latest_at)}</span>
+              ${e.participants?.length ? `<span>👥 ${e.participants.slice(0,2).map(escHtml).join(', ')}${e.participants.length>2?` +${e.participants.length-2}`:''}</span>` : ''}
+            </div>
+          </div>
+          <span class="chevron">›</span>
+        </div>
+        <div class="thread-body">
+          <div class="thread-summary">${escHtml(e.reason || '')}</div>
+          ${urgencyTags ? `<div style="display:flex;flex-wrap:wrap;gap:5px;margin:8px 0">${urgencyTags}</div>` : ''}
+          ${deadlineHtml}
+          ${renderActionItems(e.extracted_tasks)}
+          ${renderParticipants(e.participants)}
+        </div>
+      </div>`;
+  }).join('');
+
+  return statsHtml + `<div class="card"><div class="card-head"><div class="card-title"><span style="color:var(--accent)">🎯</span> Ranked Emails</div><span style="color:var(--muted);font-size:11px;font-family:'JetBrains Mono',monospace">${data.period_hours}h window · ${emails.length} shown</span></div><div class="card-body"><div class="item-list">${items}</div></div></div>`;
+}
+
+// ─────────────────────────── QUESTIONS ───────────────────────────────────────
+
+function renderQuestions(data) {
+  if (!data) return errorBox('No response');
+  if (data.error) return errorBox(data.error);
+  const channelMap = data.channels || {};
+  const channelNames = Object.keys(channelMap);
+
+  const statsHtml = `<div class="stats-row">
+    <div class="stat-tile"><div class="stat-num" style="color:var(--critical)">${data.unanswered_count ?? 0}</div><div class="stat-label">Unanswered</div></div>
+    <div class="stat-tile"><div class="stat-num">${channelNames.length}</div><div class="stat-label">Channels</div></div>
+    <div class="stat-tile"><div class="stat-num">${data.total_scanned ?? 0}</div><div class="stat-label">Msgs Scanned</div></div>
+    <div class="stat-tile"><div class="stat-num">${fmtDate(data.generated_at)}</div><div class="stat-label">Generated</div></div>
+  </div>`;
+
+  if (!channelNames.length) return statsHtml + emptyBox(data.message || 'No open questions found.');
+
+  const channelBlocks = channelNames.map(ch => {
+    const questions = channelMap[ch] || [];
+    const qItems = questions.map(q => {
+      const urgClass = `urgency-${q.urgency || 'medium'}`;
+      const answeredBadge = q.is_answered
+        ? `<span class="q-answered">✓ answered</span>`
+        : `<span class="q-unanswered">⚠ open</span>`;
+      const topicBadge = q.topic ? `<span class="q-topic">${escHtml(q.topic)}</span>` : '';
+      const answerBlock = q.is_answered && q.answer_summary
+        ? `<div style="margin-top:8px;padding:8px 10px;background:rgba(6,214,160,.07);border-radius:5px;border-left:2px solid var(--low);font-size:12px;color:#8dd9c4">💡 ${escHtml(q.answer_summary)}</div>`
+        : '';
+      return `<div class="q-card">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <div class="q-urgency-dot ${urgClass}"></div>
+          <div style="flex:1;min-width:0">
+            <div class="q-text">${escHtml(q.question)}</div>
+            <div class="q-meta">
+              <span>👤 ${escHtml(q.asker || '?')}</span>
+              &nbsp;·&nbsp;
+              <span>🕐 ${fmtDate(q.asked_at)}</span>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px">${topicBadge} ${answeredBadge}</div>
+            ${answerBlock}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
+    return `<div class="channel-group">
+      <div class="channel-group-title">
+        <span>💬</span> ${escHtml(ch)}
+        <span style="margin-left:auto;color:var(--muted);font-size:11px">${questions.length} question${questions.length!==1?'s':''}</span>
+      </div>
+      <div class="item-list">${qItems}</div>
+    </div>`;
+  }).join('');
+
+  return statsHtml + `<div class="card"><div class="card-head"><div class="card-title"><span style="color:var(--accent2)">❓</span> Questions by Channel</div></div><div class="card-body">${channelBlocks}</div></div>`;
+}
+
+// ─────────────────────────── BRIEFING ────────────────────────────────────────
+
+function renderBriefing(data) {
+  if (!data) return errorBox('No response');
+  if (data.error) return errorBox(data.error);
+
+  const genAt = fmtDate(data.generated_at);
+  const headerHtml = `<div class="stats-row">
+    <div class="stat-tile"><div class="stat-num" style="font-size:14px">${genAt}</div><div class="stat-label">Generated at</div></div>
+    <div class="stat-tile"><div class="stat-num">${data.period_hours ?? '?'}</div><div class="stat-label">Hours window</div></div>
+  </div>`;
+
+  const outlookCard = `<div class="card">
+    <div class="card-head"><div class="card-title" style="color:var(--outlook)">📧 Email Summary</div></div>
+    <div class="card-body">${renderOutlookSummary(data.outlook_summary)}</div>
+  </div>`;
+
+  const priorityCard = `<div class="card">
+    <div class="card-head"><div class="card-title" style="color:var(--accent)">🎯 Priority Emails</div></div>
+    <div class="card-body">${renderPriority(data.priority_emails)}</div>
+  </div>`;
+
+  const teamsCard = `<div class="card">
+    <div class="card-head"><div class="card-title" style="color:var(--teams)">💬 Teams Summary</div></div>
+    <div class="card-body">${renderTeamsSummary(data.teams_summary)}</div>
+  </div>`;
+
+  const questCard = `<div class="card">
+    <div class="card-head"><div class="card-title" style="color:var(--accent2)">❓ Open Questions</div></div>
+    <div class="card-body">${renderQuestions(data.open_questions)}</div>
+  </div>`;
+
+  return headerHtml + `<div class="briefing-grid">${outlookCard}${priorityCard}${teamsCard}${questCard}</div>`;
+}
+
+// ─────────────────────────── WIRE-UP ─────────────────────────────────────────
+
+async function runSection(endpoint, btnEl, outEl, renderer) {
+  outEl.innerHTML = `<div class="state-box"><span class="spin" style="font-size:24px">⟳</span><span>Calling API…</span></div>`;
+  try {
+    const data = await apiFetch(endpoint, btnEl);
+    outEl.innerHTML = renderer(data);
+  } catch (err) {
+    outEl.innerHTML = errorBox(err.message);
+  } finally {
+    btnEl.classList.remove('btn-loading');
+    btnEl.innerHTML = btnEl.dataset.label;
   }
 }
 
-function renderDashboard(data) {
-  const main = document.getElementById('dashboard-content');
-  
-  // Safe extraction (handle errors from backend)
-  const emails = data.priority_emails?.ranked_emails || [];
-  const questions = data.open_questions?.questions || [];
-  const tSum = data.teams_summary?.overall_digest || 'No recent Teams activity.';
-  const oSum = data.outlook_summary?.overall_digest || 'No recent Outlook activity.';
-
-  main.innerHTML = `
-    <div class="col">
-      <div class="card">
-        <div class="card-header">
-          <span>📧 Outlook Summary</span>
-        </div>
-        <div class="card-body summary-text">
-          ${formatMarkdown(oSum)}
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header">
-          <span>💬 Teams Summary</span>
-        </div>
-        <div class="card-body summary-text">
-          ${formatMarkdown(tSum)}
-        </div>
-      </div>
-    </div>
-
-    <div class="col">
-      <div class="card">
-        <div class="card-header">
-          <span>🚨 Priority Action Required</span>
-          <span>${emails.length} items</span>
-        </div>
-        <div class="card-body">
-          ${emails.length === 0 ? '<div style="color:#666;font-size:12px">Inbox Zero! No high priority emails.</div>' : 
-            emails.map(e => `
-              <div class="email-item">
-                <div class="email-subj">${esc(e.subject)}</div>
-                <div class="email-meta">
-                  <span class="badge ${e.priority_label}">${e.priority_label} (${e.priority_score}/10)</span>
-                  ${e.has_deadline ? `<span class="badge medium">Due: ${esc(e.deadline_text)}</span>` : ''}
-                </div>
-                <div class="reason">${esc(e.reason)}</div>
-                ${e.extracted_tasks?.length ? `
-                  <div class="tasks">
-                    <strong>Extracted Tasks:</strong>
-                    <ul>${e.extracted_tasks.map(t => `<li>${esc(t)}</li>`).join('')}</ul>
-                  </div>
-                ` : ''}
-              </div>
-            `).join('')
-          }
-        </div>
-      </div>
-    </div>
-
-    <div class="col">
-      <div class="card">
-        <div class="card-header">
-          <span>❓ Unanswered Team Questions</span>
-          <span>${questions.length} items</span>
-        </div>
-        <div class="card-body">
-          ${questions.length === 0 ? '<div style="color:#666;font-size:12px">No pending questions in your channels.</div>' : 
-            questions.map(q => `
-              <div class="q-item">
-                <div class="q-channel"># ${esc(q.channel_name || 'general')}</div>
-                <div class="q-text">"${esc(q.question)}"</div>
-                <div style="font-size:10px;color:#666;margin-top:6px;display:flex;justify-content:space-between">
-                  <span>Asked by ${esc(q.asker_name)}</span>
-                  <span style="color:${q.urgency==='high'?'#ef4444':'#aaa'}">${q.urgency} urgency</span>
-                </div>
-              </div>
-            `).join('')
-          }
-        </div>
-      </div>
-    </div>
-  `;
+function initBtn(btnId, labelText, getEndpoint, outId, renderer) {
+  const btn = document.getElementById(btnId);
+  btn.dataset.label = btn.innerHTML;
+  btn.addEventListener('click', () => {
+    const out = document.getElementById(outId);
+    runSection(getEndpoint(), btn, out, renderer);
+  });
 }
 
-// Helpers
-function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function formatMarkdown(text) {
-  return esc(text)
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/\n\n/g, '</p><p style="margin-top:8px">')
-    .replace(/\n- (.*?)/g, '<li>$1</li>')
-    .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
-}
+// Briefing
+initBtn('briefing-run', null, () => {
+  const h = qs('#briefing-hours').value || 24;
+  return `/intelligence/briefing?hours=${h}`;
+}, 'briefing-out', renderBriefing);
 
-// Auto-load on boot
-window.onload = loadBriefing;
+// Outlook summary
+initBtn('os-run', null, () => {
+  const h = qs('#os-hours').value || 500;
+  return `/intelligence/outlook/summary?hours=${h}`;
+}, 'os-out', renderOutlookSummary);
+
+// Priority
+initBtn('op-run', null, () => {
+  const h = qs('#op-hours').value || 48;
+  const n = qs('#op-topn').value || 10;
+  const ctx = qs('#op-context').value.trim();
+  let url = `/intelligence/outlook/priority?hours=${h}&top_n=${n}`;
+  if (ctx) url += `&user_context=${encodeURIComponent(ctx)}`;
+  return url;
+}, 'op-out', renderPriority);
+
+// Teams summary
+initBtn('ts-run', null, () => {
+  const h = qs('#ts-hours').value;
+  const f = qs('#ts-filter').value.trim();
+  let url = '/intelligence/teams/summary';
+  const params = [];
+  if (h) params.push(`hours=${h}`);
+  if (f) params.push(`channel_filter=${encodeURIComponent(f)}`);
+  return url + (params.length ? '?' + params.join('&') : '');
+}, 'ts-out', renderTeamsSummary);
+
+// Questions
+initBtn('tq-run', null, () => {
+  const h = qs('#tq-hours').value;
+  const f = qs('#tq-filter').value.trim();
+  const u = qs('#tq-unanswered').value;
+  let url = `/intelligence/teams/questions?unanswered_only=${u}`;
+  if (h) url += `&hours=${h}`;
+  if (f) url += `&channel_filter=${encodeURIComponent(f)}`;
+  return url;
+}, 'tq-out', renderQuestions);
+
+// Fix labels after init
+document.querySelectorAll('.btn-primary').forEach(b => { b.dataset.label = b.innerHTML; });
 </script>
 </body>
 </html>

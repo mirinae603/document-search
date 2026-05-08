@@ -27,8 +27,8 @@ from intelligence.summariser import _cutoff_iso, _participants, _scan
 
 logger = logging.getLogger(__name__)
 
-_MAX_THREADS_TO_RANK = 30   # cap so the tool-call payload doesn't exceed context
-_PREVIEW_CHARS       = 600  # chars of thread text sent to LLM per email
+_MAX_THREADS_TO_RANK = 5  # cap so the tool-call payload doesn't exceed context
+_PREVIEW_CHARS       = 150  # chars of thread text sent to LLM per email
 
 
 # ── Tool schema (OpenAI function-calling format) ──────────────────────────────
@@ -206,7 +206,7 @@ async def get_priority_emails(
 
     user_msg = (
         f"Please rank these {len(descriptors)} email threads by priority:\n\n"
-        + json.dumps(descriptors, indent=2)
+        + json.dumps(descriptors, separators=(",", ":"))
     )
 
     logger.info(f"priority: calling LLM tool with {len(descriptors)} threads")
@@ -218,7 +218,7 @@ async def get_priority_emails(
         system      = system,
     )
 
-    if not result:
+    if not result:  
         return _error_response(hours, thread_meta, "LLM tool call returned no result")
 
     ranked_raw = result.get("ranked_emails", [])

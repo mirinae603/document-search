@@ -33,8 +33,6 @@ logging.basicConfig(
     format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ── Storage + core blocks ─────────────────────────────────────────────────
@@ -107,4 +105,4 @@ app.include_router(qa_router)
 app.include_router(connector_router)
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True,reload_dirs = [os.path.dirname(os.path.abspath(__file__))])

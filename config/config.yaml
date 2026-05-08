@@ -3,7 +3,7 @@ embedding:
   provider: "openrouter"  # Options: openrouter, local, sentence-transformers
   
   openrouter:
-    api_key: ""
+    api_key: "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"
     model: "openai/text-embedding-3-small"  
     base_url: "https://openrouter.ai/api/v1"
     dimensions: 1536

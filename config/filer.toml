@@ -1,6 +1,6 @@
 [leveldb2]
 enabled = true
-dir = "/mnt/d/cerrado/document-search-feature-search-qa-final-draft/data/seaweedfs/filerldb2"
+dir = "/home/azureuser/document-search/data/seaweedfs/filerldb2"
 
 [notification.webhook]
 enabled = true

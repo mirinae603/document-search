@@ -42,7 +42,7 @@ def _require_store():
 
 @router.get("/outlook/summary")
 async def outlook_summary(
-    hours: int = Query(24, ge=1, le=168, description="Look-back window in hours (max 7 days)")
+    hours: int = Query(500, ge=1, le=168, description="Look-back window in hours (max 7 days)")
 ):
     """
     Email digest: one summary per thread received in the last `hours`,

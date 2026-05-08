@@ -6,20 +6,28 @@ import os
 SEAWEED_FILER = os.getenv("SEAWEED_FILER", "http://localhost:8888")
 
 # ── LanceDB ───────────────────────────────────────────────────────────────────
-LANCEDB_PATH  = os.getenv("LANCEDB_PATH", "./data/lancedb")
+LANCEDB_PATH  = os.getenv("LANCEDB_PATH", "/home/azureuser/document-search/data/lancedb")
 IMAGE_CHUNK_THRESHOLD = int(os.getenv("IMAGE_CHUNK_THRESHOLD", "2"))
+LLM_PROVIDER        = os.getenv("LLM_PROVIDER", "azure")
 # ── OpenRouter ────────────────────────────────────────────────────────────────
 OPENROUTER_KEY      = os.getenv("OPENROUTER_KEY", "")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 EMBEDDING_MODEL     = os.getenv("EMBEDDING_MODEL", "openai/text-embedding-3-small")
 LLM_MODEL           = os.getenv("LLM_MODEL",       "openai/gpt-4o-mini")
 EMBEDDING_DIM       = int(os.getenv("EMBEDDING_DIM", "1536"))
+
+AZURE_OPENAI_KEY         = os.getenv("AZURE_OPENAI_KEY", "")
+AZURE_OPENAI_ENDPOINT    = os.getenv("AZURE_OPENAI_ENDPOINT", "https://kv-test-4-0-mini.openai.azure.com/")
+AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
+AZURE_DEPLOYMENT         = os.getenv("AZURE_DEPLOYMENT", "gpt-4o-mini")
+
+
 # add to config.py
 QA_MODEL            = os.getenv("QA_MODEL",             LLM_MODEL)
 OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL",  "https://openrouter.ai/api/v1")
 
 # ── Chunking ──────────────────────────────────────────────────────────────────
-CHUNK_SIZE    = int(os.getenv("CHUNK_SIZE",    "500"))
+CHUNK_SIZE    = int(os.getenv("CHUNK_SIZE",    "500"))  
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "50"))
 
 # ── Reranker ──────────────────────────────────────────────────────────────────

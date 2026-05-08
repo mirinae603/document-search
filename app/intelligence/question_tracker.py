@@ -50,8 +50,10 @@ _TURN_RE = re.compile(
 _BATCH_SIZE        = 15
 # Context window: how many turns before/after the question to include
 _CONTEXT_TURNS     = 3
-# LLM enrichment token budget
-_ENRICH_MAX_TOKENS = 2000
+# LLM enrichment token budget — kept low to avoid 402 on free-tier OpenRouter accounts.
+# 600 is enough for a batch of 15 classifications (each result is ~40 tokens).
+# Raise to 1200 once you're on a paid plan.
+_ENRICH_MAX_TOKENS = 600
 
 
 # ── Tool schema ───────────────────────────────────────────────────────────────
@@ -204,14 +206,20 @@ async def get_unanswered_questions(
         if not item.get("is_answered"):
             unanswered_count += 1
 
-    # Sort each channel: high urgency first, then by asked_at descending
+    # Sort each channel: high urgency first, then by asked_at descending.
+    # asked_at is an ISO-8601 string — negate with a tilde trick: sort ascending
+    # on urgency rank, then descending on the string by inverting char order via
+    # a tuple of negated ord() values is complex; simpler: sort twice (stable).
     _urgency_rank = {"high": 0, "medium": 1, "low": 2}
     for ch in by_channel:
+        # Step 1 — sort by asked_at descending (ISO strings sort lexicographically)
         by_channel[ch].sort(
-            key=lambda q: (
-                _urgency_rank.get(q.get("urgency", "low"), 2),
-                -(q.get("asked_at") or ""),
-            )
+            key=lambda q: q.get("asked_at") or "",
+            reverse=True,
+        )
+        # Step 2 — stable sort by urgency ascending (preserves asked_at order within tier)
+        by_channel[ch].sort(
+            key=lambda q: _urgency_rank.get(q.get("urgency", "low"), 2),
         )
 
     return {

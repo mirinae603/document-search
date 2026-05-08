@@ -59,7 +59,7 @@ async def summarise_outlook(store, hours: int = 24) -> dict:
     }
     """
     cutoff = _cutoff_iso(hours)
-    where  = f"platform = 'outlook' AND sent_at >= '{cutoff}'"
+    where  = f"platform = 'outlook' "
     rows   = _scan(store, where, limit=500)
 
     if not rows:

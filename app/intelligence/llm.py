@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 
-from config import OPENROUTER_BASE_URL, OPENROUTER_KEY, QA_MODEL
+from config import OPENROUTER_BASE_URL, OPENROUTER_KEY, QA_MODEL, LLM_PROVIDER, AZURE_OPENAI_KEY , AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_VERSION, AZURE_DEPLOYMENT
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,26 @@ logger = logging.getLogger(__name__)
 _DEFAULT_MAX_TOKENS = 2000
 _TOOL_MAX_TOKENS    = 3000
 _TIMEOUT            = 90   # seconds
+
+
+def _openai_compatible_url() -> str:
+    """Returns the chat/completions URL for OpenRouter or Azure."""
+    provider = LLM_PROVIDER
+    if provider == "azure":
+        base = AZURE_OPENAI_ENDPOINT.rstrip("/")
+        # Always use AZURE_DEPLOYMENT — the caller's model string is irrelevant for Azure
+        #return f"{base}/openai/deployments/{AZURE_DEPLOYMENT}/chat/completions?api-version={AZURE_OPENAI_API_VERSION}"
+        return 
+    # openrouter
+    return f"{OPENROUTER_BASE_URL.rstrip('/')}/chat/completions"
+ 
+ 
+def _openai_compatible_headers() -> dict:
+    provider = LLM_PROVIDER
+    if provider == "azure":
+        return {"api-key": AZURE_OPENAI_KEY, "Content-Type": "application/json"}
+    return {"Authorization": f"Bearer {OPENROUTER_KEY}", "Content-Type": "application/json"}
+ 
 
 
 async def llm_call(
@@ -39,21 +59,21 @@ async def llm_call(
         full_messages.append({"role": "system", "content": system})
     full_messages.extend(messages)
 
+    payload: Dict[str, Any] = {
+        "messages":    full_messages,
+        "max_tokens":  max_tokens,
+        "temperature": temperature,
+    }
+    # Azure uses deployment name in the URL, OpenRouter needs model in body
+    if LLM_PROVIDER.lower() != "azure":
+        payload["model"] = model
+
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         resp = await client.post(
-            f"{OPENROUTER_BASE_URL.rstrip('/')}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {OPENROUTER_KEY}",
-                "Content-Type":  "application/json",
-            },
-            json={
-                "model":       model,
-                "messages":    full_messages,
-                "max_tokens":  max_tokens,
-                "temperature": temperature,
-            },
+            _openai_compatible_url(),
+            headers=_openai_compatible_headers(),
+            json=payload,
         )
-
     if resp.status_code != 200:
         raise RuntimeError(f"LLM error {resp.status_code}: {resp.text[:300]}")
 
@@ -84,21 +104,21 @@ async def llm_tool_call(
     full_messages.extend(messages)
 
     payload = {
-        "model":       model,
         "messages":    full_messages,
         "tools":       tools,
         "tool_choice": tool_choice,
         "max_tokens":  max_tokens,
         "temperature": temperature,
     }
-
+    if LLM_PROVIDER.lower() != "azure":
+        payload["model"] = model
+    url_to_call = _openai_compatible_url()
+    logger.error(f"DEBUG URL: '{url_to_call}'") # Add this line
+    logger.error(f"DEBUG ENDPOINT: '{AZURE_OPENAI_ENDPOINT}'")
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         resp = await client.post(
-            f"{OPENROUTER_BASE_URL.rstrip('/')}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {OPENROUTER_KEY}",
-                "Content-Type":  "application/json",
-            },
+            _openai_compatible_url(),
+            headers=_openai_compatible_headers(),
             json=payload,
         )
 
