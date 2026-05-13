@@ -124,7 +124,8 @@ nohup ./seaweedfs/weed server \
     -volume.port=8080 \
     -filer=true \
     -filer.port=8888 \
-    -s3=false \
+    -s3=true \
+    -s3.port=8333
     > "$LOG_DIR/seaweedfs.log" 2>&1 &
 
 SEAWEED_PID=$!
