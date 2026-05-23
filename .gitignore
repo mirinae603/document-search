@@ -68,4 +68,10 @@ app/data/conversations.db
 .pid_fastapi
 config/redis.conf
 app/data/*
-*.onnx
+*.onnxenv/
+__pycache__/
+*.pyc
+.pytest_cache/
+data/
+*.db
+*.sqlite

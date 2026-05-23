@@ -98,6 +98,30 @@ def _run_migrations():
             updated_at TEXT NOT NULL,
             PRIMARY KEY (user_id, platform, key)
         );
+
+        -- ── Actions: proposed (never auto-executed) action proposals ────────
+        CREATE TABLE IF NOT EXISTS action_proposals (
+            id               TEXT PRIMARY KEY,
+            type             TEXT NOT NULL,
+            status           TEXT NOT NULL,
+            proposed_payload TEXT NOT NULL,  -- JSON
+            current_payload  TEXT NOT NULL,  -- JSON
+            source_refs      TEXT NOT NULL,  -- JSON
+            created_at       TEXT NOT NULL,
+            created_by       TEXT NOT NULL,
+            model_used       TEXT NOT NULL,
+            executed_at      TEXT,
+            audit_log        TEXT NOT NULL   -- JSON array
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_action_proposals_status
+            ON action_proposals(status);
+
+        CREATE INDEX IF NOT EXISTS idx_action_proposals_type
+            ON action_proposals(type);
+
+        CREATE INDEX IF NOT EXISTS idx_action_proposals_created_at
+            ON action_proposals(created_at DESC);
     """)
     db.commit()
     logger.info("✓ Migrations complete")

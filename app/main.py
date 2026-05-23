@@ -27,6 +27,7 @@ from connectors.chat_indexer import ChatDocumentIndexer
 from api.connector_routes   import router as connector_router, init_connector_routes
 from connectors.outlook     import OutlookConnector
 from api.intelligence_routes import router as intelligence_router, init_intelligence_routes
+from api.action_routes       import router as action_router, init_action_routes
 
 logging.basicConfig(
     level  = logging.INFO,
@@ -67,6 +68,7 @@ async def lifespan(app: FastAPI):
         outlook_connector = outlook_connector
     )
     init_intelligence_routes(store=store)
+    init_action_routes(store=store)
 
     logger.info("✓ All blocks initialised")
     yield
@@ -103,6 +105,7 @@ app.include_router(ingestion_router)
 app.include_router(search_router)
 app.include_router(qa_router)
 app.include_router(connector_router)
+app.include_router(action_router)
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True,reload_dirs = [os.path.dirname(os.path.abspath(__file__))])
