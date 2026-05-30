@@ -28,6 +28,8 @@ from api.connector_routes   import router as connector_router, init_connector_ro
 from connectors.outlook     import OutlookConnector
 from api.intelligence_routes import router as intelligence_router, init_intelligence_routes
 from api.action_routes       import router as action_router, init_action_routes
+from connectors.calendar     import CalendarConnector
+from api.calendar_routes     import router as calendar_router, init_calendar_routes
 
 logging.basicConfig(
     level  = logging.INFO,
@@ -52,6 +54,7 @@ async def lifespan(app: FastAPI):
     # ── Connector infrastructure ──────────────────────────────────────────────
     teams_connector = TeamsConnector()
     outlook_connector = OutlookConnector()
+    calendar_connector = CalendarConnector()
     chat_indexer    = ChatDocumentIndexer(
         store    = store,
         embedder = embedder,
@@ -69,6 +72,7 @@ async def lifespan(app: FastAPI):
     )
     init_intelligence_routes(store=store)
     init_action_routes(store=store)
+    init_calendar_routes(store=store, calendar=calendar_connector, embedder=embedder)
 
     logger.info("✓ All blocks initialised")
     yield
@@ -106,6 +110,7 @@ app.include_router(search_router)
 app.include_router(qa_router)
 app.include_router(connector_router)
 app.include_router(action_router)
+app.include_router(calendar_router)
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True,reload_dirs = [os.path.dirname(os.path.abspath(__file__))])

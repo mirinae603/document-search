@@ -55,6 +55,15 @@ TEAMS_SCOPES = [
     "Mail.Read",
     "ChannelMessage.Read.All",
     "Team.ReadBasic.All",
+    # Read-only calendar access for the /calendar/prep meeting-prep endpoint.
+    # NOTE: adding this scope requires the user to RE-CONSENT on the OAuth app
+    # before the existing Microsoft Graph token will grant calendar access.
+    "Calendars.Read",
+    # Read-only directory lookup, required for GET /users/{email} to resolve
+    # meeting attendees (other users in the tenant) to their Graph UIDs so the
+    # meeting-prep participant filter can match Teams chunks. User.Read (above)
+    # already covers GET /me. NOTE: also requires re-consent on the OAuth app.
+    "User.ReadBasic.All",
 ]
 # How often the background scheduler polls for new messages (minutes)
 CONNECTOR_SYNC_INTERVAL_MINUTES = int(os.getenv("CONNECTOR_SYNC_INTERVAL_MINUTES", "15"))
