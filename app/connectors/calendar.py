@@ -255,11 +255,17 @@ def _parse_person(person: Optional[dict]) -> dict:
 
 
 def _parse_attendee(att: dict) -> dict:
-    """Extract {name, email, response} from a Graph attendee object."""
+    """Extract {name, email, response, type} from a Graph attendee object.
+
+    `type` (required | optional | resource) is surfaced so downstream triage
+    (calendar_priority) can read attendance_required for the signed-in user.
+    Defaults to "required" when Graph omits it (the Graph default).
+    """
     person   = _parse_person(att)
     raw_resp = ((att.get("status") or {}).get("response", "") or "").lower()
     return {
         "name":     person["name"],
         "email":    person["email"],
         "response": _RESPONSE_MAP.get(raw_resp, "none"),
+        "type":     (att.get("type", "") or "required").lower(),
     }

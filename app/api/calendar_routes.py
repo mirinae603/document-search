@@ -16,6 +16,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
+from intelligence.calendar_priority import get_calendar_priority
 from intelligence.meeting_prep import get_meeting_prep
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,14 @@ def init_calendar_routes(store, calendar, embedder=None) -> None:
 
 def _require():
     if _store is None or _calendar is None:
+        raise HTTPException(
+            503, "Calendar module not initialised — check server startup logs."
+        )
+
+
+def _require_calendar():
+    # /calendar/priority needs only the live calendar — it never touches the store.
+    if _calendar is None:
         raise HTTPException(
             503, "Calendar module not initialised — check server startup logs."
         )
@@ -72,3 +81,33 @@ async def calendar_prep(
     except Exception as e:
         logger.error(f"calendar_prep failed: {e}", exc_info=True)
         raise HTTPException(500, f"Meeting prep generation failed: {e}")
+
+
+@router.get("/priority")
+async def calendar_priority(
+    hours_ahead:  int           = Query(24, ge=1, le=168, description="Look-ahead window in hours (max 7 days)"),
+    top_n:        int           = Query(10, ge=1, le=30,  description="Max meetings to return"),
+    user_context: Optional[str] = Query(None, description="Your role/context to personalise scoring"),
+):
+    """
+    Fast triage ranking of upcoming Outlook calendar meetings.
+
+    Ranks the meetings in the next `hours_ahead` hours by importance via a SINGLE
+    LLM tool call, returning a priority_score, priority_label, reason and
+    urgency_signals per meeting alongside deterministic signals (conflicts,
+    externality, attendance-required, response-status) computed in code.
+
+    Not corpus-aware — that is /calendar/prep. Read-only: creates, modifies, and
+    sends nothing, and never touches LanceDB.
+    """
+    _require_calendar()
+    try:
+        return await get_calendar_priority(
+            _calendar,
+            hours_ahead  = hours_ahead,
+            top_n        = top_n,
+            user_context = user_context,
+        )
+    except Exception as e:
+        logger.error(f"calendar_priority failed: {e}", exc_info=True)
+        raise HTTPException(500, f"Calendar priority ranking failed: {e}")
